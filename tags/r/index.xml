@@ -1,0 +1,953 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>R | </title>
+    <link>/tags/r/</link>
+      <atom:link href="/tags/r/index.xml" rel="self" type="application/rss+xml" />
+    <description>R</description>
+    <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Fri, 20 Mar 2020 00:00:00 +0000</lastBuildDate>
+    <image>
+      <url>img/map[gravatar:%!s(bool=false) shape:circle]</url>
+      <title>R</title>
+      <link>/tags/r/</link>
+    </image>
+    
+    <item>
+      <title>Processing Large Rasters in R</title>
+      <link>/post/processing-large-rasters-in-r/</link>
+      <pubDate>Fri, 20 Mar 2020 00:00:00 +0000</pubDate>
+      <guid>/post/processing-large-rasters-in-r/</guid>
+      <description>
+
+
+&lt;p&gt;We work with a lot of huge raster datasets on the &lt;a href=&#34;https://ebird.org/science/&#34;&gt;eBird Status &amp;amp; Trends&lt;/a&gt; project, and processing them is becoming a real bottleneck in our R workflow. For example, we make weekly estimates of bird abundance at 3 km resolution across the entire Western Hemisphere, which results in raster stacks with billions of cells! To produce seasonal abundance maps, we need to average the weekly layers across all weeks within each season using the &lt;code&gt;raster&lt;/code&gt; function &lt;code&gt;calc()&lt;/code&gt;, and it takes forever with these huge files! In this post, I’m going to try to understand how &lt;code&gt;raster&lt;/code&gt; processes data and explore how this can be tweaked to improve computational efficiency.&lt;/p&gt;
+&lt;p&gt;In general, R holds objects in memory, which results in a limit to the size of objects that can be processed. This poses a problem for processing raster datasets, which can be much larger than the available system memory. The &lt;code&gt;raster&lt;/code&gt; package addresses this by only storing references to raster files within its &lt;code&gt;Raster*&lt;/code&gt; objects. Depending on the memory requirements for a given raster calculation, and the memory available, the package functions will either read the whole dataset into R for processing or process it in smaller chunks.&lt;/p&gt;
+&lt;p&gt;Let’s start by importing an example dataset generated using the &lt;code&gt;simulate_species()&lt;/code&gt; function from the &lt;code&gt;prioritizr&lt;/code&gt; package. The raster has dimensions 1000x1000 and 9 layers.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(raster)
+library(rasterVis)
+library(viridis)
+library(profmem)
+library(tidyverse)
+
+r &amp;lt;- stack(&amp;quot;data/large-raster.tif&amp;quot;)
+print(r)
+#&amp;gt; class      : RasterStack 
+#&amp;gt; dimensions : 1000, 1000, 1e+06, 9  (nrow, ncol, ncell, nlayers)
+#&amp;gt; resolution : 0.001, 0.001  (x, y)
+#&amp;gt; extent     : 0, 1, 0, 1  (xmin, xmax, ymin, ymax)
+#&amp;gt; crs        : +proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0 
+#&amp;gt; names      : large.raster.1, large.raster.2, large.raster.3, large.raster.4, large.raster.5, large.raster.6, large.raster.7, large.raster.8, large.raster.9 
+#&amp;gt; min values :              0,              0,              0,              0,              0,              0,              0,              0,              0 
+#&amp;gt; max values :          0.885,          0.860,          0.583,          0.744,          0.769,          0.428,          0.289,          0.579,          0.499
+levelplot(r,
+          col.regions = viridis,
+          xlab = NULL, ylab = NULL,
+          scales = list(draw = FALSE),
+          names.attr = paste(&amp;quot;Band&amp;quot;, seq_len(nlayers(r))),
+          maxpixels = 1e6)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2020-03-20-processing-large-rasters-in-r/index_files/figure-html/read-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;We can calculate the total number of values this raster can store and the associated memory requirements assuming 8 bytes per cell value. To calculate the actual memory used, we can override the default &lt;code&gt;raster&lt;/code&gt; behavior and read the contents of the file into R using &lt;code&gt;readAll()&lt;/code&gt;.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;n_values &amp;lt;- ncell(r) * nlayers(r)
+# memory in mb
+mem_est &amp;lt;- 8 * n_values / 2^20
+mem_act &amp;lt;- as.integer(object.size(readAll(r))) / 2^20
+#&amp;gt; [1] &amp;quot;# values in raster:  9,000,000&amp;quot;
+#&amp;gt; [1] &amp;quot;Estimated size (MB):  68.7&amp;quot;
+#&amp;gt; [1] &amp;quot;Memory usage (MB):  68.8&amp;quot;
+#&amp;gt;            used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
+#&amp;gt; Ncells  1925151  103   3.67e+06  196         NA 2.49e+06  133
+#&amp;gt; Vcells 45371747  346   1.26e+08  963     102400 2.28e+08 1741&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;So we were fairly close in our estimates, looks like it takes a little under 70 Mb of memory to hold this object in the R session.&lt;/p&gt;
+&lt;div id=&#34;processing-rasters&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Processing rasters&lt;/h2&gt;
+&lt;p&gt;Let’s apply the &lt;code&gt;calc()&lt;/code&gt; function to this dataset to calculate the cell-wise mean across layers.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;r_mean &amp;lt;- calc(r, mean, na.rm = TRUE)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This is essentially to equivalent of &lt;code&gt;apply()&lt;/code&gt; for a array with 3 dimensions, e.g.:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;a &amp;lt;- array(runif(27), dim = c(3, 3, 3))
+apply(a, 1:2, mean)
+#&amp;gt;       [,1]  [,2]  [,3]
+#&amp;gt; [1,] 0.236 0.602 0.570
+#&amp;gt; [2,] 0.452 0.412 0.588
+#&amp;gt; [3,] 0.561 0.598 0.545&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;But what &lt;code&gt;raster&lt;/code&gt; is doing in &lt;code&gt;calc()&lt;/code&gt; is a little different and depends on the memory requirements of the calculation. We can use the function &lt;code&gt;canProccessInMemory()&lt;/code&gt; to test whether a &lt;code&gt;Raster*&lt;/code&gt; object can be loaded into memory for processing or not. We’ll use &lt;code&gt;verbose = TRUE&lt;/code&gt; to get some additional information.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;canProcessInMemory(r, verbose = TRUE)
+#&amp;gt; memory stats in GB
+#&amp;gt; mem available: 2.22
+#&amp;gt;         60%  : 1.33
+#&amp;gt; mem needed   : 0.27
+#&amp;gt; max allowed  : 4.66  (if available)
+#&amp;gt; [1] TRUE&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This tells me how much free memory I have available on my computer and how much memory is required for this &lt;code&gt;Raster*&lt;/code&gt; object. We don’t want &lt;code&gt;raster&lt;/code&gt; eating up all our memory, so &lt;code&gt;raster&lt;/code&gt; has two user adjustable options to specify the maximum amount of memory it will use in bytes or relative to the available memory. These values default to 5 billion bytes (4.66 GB) and 60%, respectively, but can be adjusted with &lt;code&gt;rasterOptions()&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;raster&lt;/code&gt; functions call &lt;code&gt;canProccessInMemory()&lt;/code&gt; when they’re invoked, then use a different approach for processing depending on the results:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;canProcessInMemory(r) == TRUE&lt;/code&gt;: read the entire object into the R session, then process all at once similar to &lt;code&gt;apply()&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;canProcessInMemory(r) == FALSE&lt;/code&gt;: process the raster in blocks of rows, each of which is small enough to store in memory. This approach requires that the output raster object is saved in a file. Blocks of rows are read from the input files, processed in R, then written to the output file, and this is done iteratively for all the blocks until the whole raster is processed.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;One wrinkle to this is that each &lt;code&gt;raster&lt;/code&gt; function has different memory requirements. This is dealt with using the &lt;code&gt;n&lt;/code&gt; argument to &lt;code&gt;canProccessInMemory()&lt;/code&gt;, which specifies the number of copies of the &lt;code&gt;Raster*&lt;/code&gt; object’s cell values that the function needs to have in memory. Specifically, the estimated memory requirement in bytes is &lt;code&gt;8 * n * ncell(r) * nlayers(r)&lt;/code&gt;. Let’s see how different values of &lt;code&gt;n&lt;/code&gt; affect whether a raster can be processed in memory:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;tibble(n = c(1, 10, 20, 30, 40, 50, 60)) %&amp;gt;% 
+  mutate(process_in_mem = map_lgl(n, canProcessInMemory, x = r))
+#&amp;gt; # A tibble: 7 x 2
+#&amp;gt;       n process_in_mem
+#&amp;gt;   &amp;lt;dbl&amp;gt; &amp;lt;lgl&amp;gt;         
+#&amp;gt; 1     1 TRUE          
+#&amp;gt; 2    10 TRUE          
+#&amp;gt; 3    20 FALSE         
+#&amp;gt; 4    30 FALSE         
+#&amp;gt; 5    40 FALSE         
+#&amp;gt; 6    50 FALSE         
+#&amp;gt; 7    60 FALSE&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;So, even though I called this a “large” raster, R can still handle processing it in memory until we get to requiring a fairly large number of copies, at which time, the raster will switch to being processed in blocks. For reason I don’t fully understand, the &lt;a href=&#34;https://github.com/rspatial/raster/blob/master/R/calc.R&#34;&gt;source code of the &lt;code&gt;calc()&lt;/code&gt; function&lt;/a&gt; suggests that it’s using &lt;code&gt;n = 2 * (nlayers(r) + 1)&lt;/code&gt;, which is 20, so &lt;code&gt;calc()&lt;/code&gt; is processing this raster in memory on my system. Indeed, we can confirm that the result of this calculation are stored in a memory with &lt;code&gt;inMemory()&lt;/code&gt;.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;inMemory(r_mean)
+#&amp;gt; [1] TRUE&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;What’s the point of going to all this trouble? If a raster can be processed in blocks to reduce memory usage, why not do it all the time? The issue is that processing in memory is much faster than processing in blocks and having to write to a file. We can see this by forcing &lt;code&gt;calc()&lt;/code&gt; to process on disk in blocks by setting &lt;code&gt;rasterOptions(todisk = TRUE)&lt;/code&gt;.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# in memory
+rasterOptions(todisk = FALSE)
+t_inmem &amp;lt;- system.time(calc(r, mean, na.rm = TRUE))
+print(t_inmem)
+#&amp;gt;    user  system elapsed 
+#&amp;gt;   4.664   0.159   4.866
+
+# on disk
+rasterOptions(todisk = TRUE)
+t_ondisk &amp;lt;- system.time(calc(r, mean, na.rm = TRUE))
+print(t_ondisk)
+#&amp;gt;    user  system elapsed 
+#&amp;gt;   4.717   0.408   5.152
+rasterOptions(todisk = FALSE)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;So, we see a 5.9% increase in efficiency by processing in memory. The &lt;code&gt;profmem&lt;/code&gt; package can gives us some information on the different amounts of memory used for the two approaches. Specifically, we can estimate the maximum amount of memory used at any one time by &lt;code&gt;calc()&lt;/code&gt;.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# in memory
+rasterOptions(todisk = FALSE)
+m_inmem &amp;lt;- max(profmem(calc(r, mean, na.rm = TRUE))$bytes, na.rm = TRUE)
+
+# on disk
+rasterOptions(todisk = TRUE)
+m_ondisk &amp;lt;- max(profmem(calc(r, mean, na.rm = TRUE))$bytes, na.rm = TRUE)
+rasterOptions(todisk = FALSE)
+#&amp;gt; [1] &amp;quot;In memory (MB):  69&amp;quot;
+#&amp;gt; [1] &amp;quot;On disk (MB):  17&amp;quot;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;So, it’s clear that different ways of processing &lt;code&gt;Raster*&lt;/code&gt; objects affects both the processing time and resource use.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;raster-options&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;&lt;code&gt;raster&lt;/code&gt; options&lt;/h2&gt;
+&lt;p&gt;The &lt;code&gt;raster&lt;/code&gt; package has a few options that can adjusted to tweak how functions process data. Let’s take a look at the default values:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;rasterOptions()
+#&amp;gt; format        : raster 
+#&amp;gt; datatype      : FLT4S 
+#&amp;gt; overwrite     : FALSE 
+#&amp;gt; progress      : none 
+#&amp;gt; timer         : FALSE 
+#&amp;gt; chunksize     : 1e+08 
+#&amp;gt; maxmemory     : 5e+09 
+#&amp;gt; memfrac       : 0.6 
+#&amp;gt; tmpdir        : /var/folders/mg/qh40qmqd7376xn8qxd6hm5lwjyy0h2/T//RtmpSEvRmk/raster// 
+#&amp;gt; tmptime       : 168 
+#&amp;gt; setfileext    : TRUE 
+#&amp;gt; tolerance     : 0.1 
+#&amp;gt; standardnames : TRUE 
+#&amp;gt; warn depracat.: TRUE 
+#&amp;gt; header        : none&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The options relevant to memory and processing are:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;maxmemory&lt;/code&gt;: the maximum amount of memory (in bytes) to use for a given operation, defaults to 5 billion bytes (4.66 GB).&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;memfrac&lt;/code&gt;: the maximum proportion of the available memory to use for a given operation, defaults to 60%.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;chunksize&lt;/code&gt;: the maximum size (in bytes) of individual chunks of data to read/write when a raster is being processed in blocks, defaults to 100 million bytes (0.1 GB).&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;todisk&lt;/code&gt;: used to force processing on disk in blocks.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;For example, we can adjust &lt;code&gt;chunksize&lt;/code&gt; to force &lt;code&gt;calc()&lt;/code&gt; to process our raster stack in smaller pieces. Note that &lt;code&gt;raster&lt;/code&gt; actually ignores user specified values of &lt;code&gt;chunksize&lt;/code&gt; if they’re below &lt;span class=&#34;math inline&#34;&gt;\(10^5\)&lt;/span&gt;, so I’ll have to do something sketchy and overwrite an internal &lt;code&gt;raster&lt;/code&gt; function to allow this.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# hack raster internal function
+cs_orig &amp;lt;- raster:::.chunk
+cs_hack &amp;lt;- function(x) getOption(&amp;quot;rasterChunkSize&amp;quot;)
+assignInNamespace(&amp;quot;.chunk&amp;quot;, cs_hack, ns = &amp;quot;raster&amp;quot;)
+
+# use 1 kb chunks
+rasterOptions(chunksize = 1000, todisk = TRUE)
+t_smallchunks &amp;lt;- system.time(calc(r, mean, na.rm = TRUE))
+
+# undo the hack
+assignInNamespace(&amp;quot;.chunk&amp;quot;, cs_orig, ns = &amp;quot;raster&amp;quot;)
+rasterOptions(default = TRUE)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Processing in smaller chunks resulted in a 67.3% decrease in efficiency compared to the default chunk size. All this suggests to me that, when dealing with large rasters, it makes sense to increase &lt;code&gt;maxmemory&lt;/code&gt; as much as feasible given the memory available on your system; the default value of ~ 1 GB is quite small for a modern computer. Then, once you get to a point where the raster has to be processed in blocks, increase &lt;code&gt;chunksize&lt;/code&gt; to take advantage of as much memory as you have available.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;processing-in-blocks&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Processing in blocks&lt;/h2&gt;
+&lt;p&gt;I want to take a quick detour to understand exactly how &lt;code&gt;raster&lt;/code&gt; processes data in blocks. Looking at the &lt;a href=&#34;https://github.com/rspatial/raster/blob/master/R/calc.R&#34;&gt;source code of the &lt;code&gt;calc()&lt;/code&gt; function&lt;/a&gt; gives a template for how this is done. A few &lt;code&gt;raster&lt;/code&gt; functions help with this:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;blockSize()&lt;/code&gt; suggests a sensible way to break up a &lt;code&gt;Raster*&lt;/code&gt; object for processing in blocks. The &lt;code&gt;raster&lt;/code&gt; objects always uses a set of entire rows as blocks, so this function gives the starting row numbers of each block.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;readStart()&lt;/code&gt; opens a file on disk for reading.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;getValues()&lt;/code&gt; reads a block of data, defined by the starting row and number of rows.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;readStop()&lt;/code&gt; closes the input file.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;writeStart()&lt;/code&gt; opens a file on disk for writing the results of our calculations to.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;writeValues()&lt;/code&gt; writes a block of data to a file, starting at a given row.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;writeStop()&lt;/code&gt; closes the output file.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Let’s set things up to replicate what &lt;code&gt;calc()&lt;/code&gt; does. First we need to determine how to dive the input raster up into blocks for processing:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# file paths
+f_in &amp;lt;- &amp;quot;data/large-raster.tif&amp;quot;
+f_out &amp;lt;- tempfile(fileext = &amp;quot;.tif&amp;quot;)
+
+# input and output rasters
+r_in &amp;lt;- stack(f_in)
+r_out &amp;lt;- raster(r_in)
+
+# blocks
+b &amp;lt;- blockSize(r_in)
+print(b)
+#&amp;gt; $row
+#&amp;gt; [1]   1 251 501 751
+#&amp;gt; 
+#&amp;gt; $nrows
+#&amp;gt; [1] 250 250 250 250
+#&amp;gt; 
+#&amp;gt; $n
+#&amp;gt; [1] 4&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;So, &lt;code&gt;blockSize()&lt;/code&gt; is suggesting we break the file up into 4 blocks (&lt;code&gt;b$n&lt;/code&gt;) of 250 (&lt;code&gt;b$nrows&lt;/code&gt;) each, and &lt;code&gt;b$rows&lt;/code&gt; gives us the starting row value for each block. Now we open the input and output files, process the blocks iteratively, reading and writing as necessary, then close the files.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# open files
+r_in &amp;lt;- readStart(r_in)
+r_out &amp;lt;- writeStart(r_out, filename = f_out)
+
+# loop over blocks
+for (i in seq_along(b$row)) {
+  # read values for block
+  # format is a matrix with rows the cells values and columns the layers
+  v &amp;lt;- getValues(r_in, row = b$row[i], nrows = b$nrows[i])
+  
+  # mean cell value across layers
+  v &amp;lt;- rowMeans(v, na.rm = TRUE)
+  
+  # write to output file
+  r_out &amp;lt;- writeValues(r_out, v, b$row[i])
+}
+
+# close files
+r_out &amp;lt;- writeStop(r_out)
+r_in &amp;lt;- readStop(r_in)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;That’s it, not particularly complicated! Let’s make sure it worked by comparing to the results from &lt;code&gt;calc()&lt;/code&gt;.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;cellStats(abs(r_mean- r_out), max, na.rm = TRUE)
+#&amp;gt; [1] 2.98e-08&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Everything looks good, the results are identical! Hopefully, this minimal example is a good template if you want to build your own raster processing functions.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;parallel-processing&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Parallel processing&lt;/h2&gt;
+&lt;p&gt;Breaking a raster up into blocks and processing each independently suggests another approach to more efficient raster processing: parallelization. Each block could be processed by a different core and node and the results will be collected in the output file. Fortunately, &lt;code&gt;raster&lt;/code&gt; has some nice tools for parallel raster processing. The function &lt;code&gt;clusterR()&lt;/code&gt; essentially takes an existing &lt;code&gt;raster&lt;/code&gt; function such as &lt;code&gt;calc()&lt;/code&gt; and runs it in parallel. Prior to using it, we need to Here’s how it works:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# start a cluster with four cores
+beginCluster(n = 4)
+t_parallel &amp;lt;- system.time({
+  parallel_mean &amp;lt;- clusterR(r, fun = calc,
+                            args = list(fun = mean, na.rm = TRUE))
+})
+endCluster()
+
+# time for parallel calc
+t_parallel[3]
+#&amp;gt; elapsed 
+#&amp;gt;    5.12
+# time for sequential calc
+t_ondisk[3]
+#&amp;gt; elapsed 
+#&amp;gt;    5.15&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Hmmm, there’s something odd going on here, it’s taking longer for the parallel version than the sequential version. I suspect I’ve messed something up in the parallel implementation. Let me know if you know what I’ve done wrong, perhaps it’s a topic for another post.&lt;/p&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>eBird Best Practices</title>
+      <link>/project/ebp/</link>
+      <pubDate>Wed, 18 Mar 2020 00:00:00 +0000</pubDate>
+      <guid>/project/ebp/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>ebirdst</title>
+      <link>/project/rebirdst/</link>
+      <pubDate>Tue, 17 Mar 2020 00:00:00 +0000</pubDate>
+      <guid>/project/rebirdst/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>auk</title>
+      <link>/project/auk/</link>
+      <pubDate>Mon, 16 Mar 2020 00:00:00 +0000</pubDate>
+      <guid>/project/auk/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>prioritizr</title>
+      <link>/project/prioritizr/</link>
+      <pubDate>Sun, 15 Mar 2020 00:00:00 +0000</pubDate>
+      <guid>/project/prioritizr/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Lotka-Volterra predator prey model</title>
+      <link>/post/lotka-volterra/</link>
+      <pubDate>Fri, 13 Oct 2017 00:00:00 +0000</pubDate>
+      <guid>/post/lotka-volterra/</guid>
+      <description>
+
+
+&lt;p&gt;In this post, I’ll explore using R to analyze dynamical systems. Using the Lotka-Volterra predator prey model as a simple case-study, I use the R packages &lt;code&gt;deSolve&lt;/code&gt; to solve a system of differential equations and &lt;code&gt;FME&lt;/code&gt; to perform a sensitivity analysis.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(tidyverse)
+library(deSolve)
+library(FME)&lt;/code&gt;&lt;/pre&gt;
+&lt;div id=&#34;lotka-volterra-model&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Lotka-Volterra model&lt;/h2&gt;
+&lt;p&gt;The Lotka-Volterra model describes the dynamics of a two-species system in which one is a predator and the other is its prey. The equations governing the dynamics of the prey (with density &lt;span class=&#34;math inline&#34;&gt;\(x\)&lt;/span&gt; and predator (with density &lt;span class=&#34;math inline&#34;&gt;\(y\)&lt;/span&gt;) are:&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;math display&#34;&gt;\[
+\begin{aligned}
+  \frac{dx}{dt} &amp;amp; = \alpha x - \beta xy \\
+  \frac{dy}{dt} &amp;amp; = \delta \beta xy - \gamma y 
+\end{aligned}
+\]&lt;/span&gt;&lt;/p&gt;
+&lt;p&gt;where &lt;span class=&#34;math inline&#34;&gt;\(\alpha\)&lt;/span&gt; is the (exponential) growth rate of the prey in the absence of predation, &lt;span class=&#34;math inline&#34;&gt;\(\beta\)&lt;/span&gt; is the predation rate or predator search efficiency, &lt;span class=&#34;math inline&#34;&gt;\(\delta\)&lt;/span&gt; describes the predator food conversion efficiency, and &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; is the predator mortality.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;solving-the-ode&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Solving the ODE&lt;/h2&gt;
+&lt;p&gt;Given a set of initial conditions and parameter estimates, &lt;code&gt;deSolve::ode()&lt;/code&gt; can be used to evolve a dynamical system described by a set of ODEs. I start by defining parameters, as a named list, and the initial state, as a vector. For the initial state, it is the order that matters not the names.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# parameters
+pars &amp;lt;- c(alpha = 1, beta = 0.2, delta = 0.5, gamma = 0.2)
+# initial state 
+init &amp;lt;- c(x = 1, y = 2)
+# times
+times &amp;lt;- seq(0, 100, by = 1)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Next, I need to define a function that computes the derivatives in the ODE system at a given point in time.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;deriv &amp;lt;- function(t, state, pars) {
+  with(as.list(c(state, pars)), {
+    d_x &amp;lt;- alpha * x - beta * x * y
+    d_y &amp;lt;- delta * beta * x * y - gamma * y
+    return(list(c(x = d_x, y = d_y)))
+  })
+}
+lv_results &amp;lt;- ode(init, times, deriv, pars)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The vignette for &lt;code&gt;FME&lt;/code&gt; suggets rolling all this into a function as follows. This function will become the input for the &lt;code&gt;FME&lt;/code&gt; sensitivity analysis.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_model &amp;lt;- function(pars, times = seq(0, 50, by = 1)) {
+  # initial state 
+  state &amp;lt;- c(x = 1, y = 2)
+  # derivative
+  deriv &amp;lt;- function(t, state, pars) {
+    with(as.list(c(state, pars)), {
+      d_x &amp;lt;- alpha * x - beta * x * y
+      d_y &amp;lt;- delta * beta * x * y - gamma * y
+      return(list(c(x = d_x, y = d_y)))
+    })
+  }
+  # solve
+  ode(y = state, times = times, func = deriv, parms = pars)
+}
+lv_results &amp;lt;- lv_model(pars = pars, times = seq(0, 50, by = 0.25))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The ouput of &lt;code&gt;ode()&lt;/code&gt; is a matrix with one column for each state variable. I convert this to a data frame and plot the evolution of the system over time.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_results %&amp;gt;% 
+  data.frame() %&amp;gt;% 
+  gather(var, pop, -time) %&amp;gt;% 
+  mutate(var = if_else(var == &amp;quot;x&amp;quot;, &amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;)) %&amp;gt;% 
+  ggplot(aes(x = time, y = pop)) +
+    geom_line(aes(color = var)) +
+    scale_color_brewer(NULL, palette = &amp;quot;Set1&amp;quot;) +
+    labs(title = &amp;quot;Lotka-Volterra predator prey model&amp;quot;,
+         subtitle = paste(names(pars), pars, sep = &amp;quot; = &amp;quot;, collapse = &amp;quot;; &amp;quot;),
+         x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/time-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;This choice of paramters leads to periodic dynamics in which the prey population initially increases, leading to an abundance of food for the predators. The predators increase in response (lagging the prey population), eventually overwhelming the prey population, which crashes. This in turn causes the predators to crash, and the cycle repeats. The period of these dynamics is about 15 seconds, with the predators lagging the prey by about a second.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;sensitivity-analysis&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Sensitivity analysis&lt;/h2&gt;
+&lt;p&gt;A sensitivity analysis examines how changes in the parameters underlying a model affect the behaviour of the system. It can help us understand the impact of uncertainty in parameter estimates. The &lt;code&gt;FME&lt;/code&gt; vignette covers two types of sensitivity analyses: global and local.&lt;/p&gt;
+&lt;div id=&#34;global-sensitivity&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Global sensitivity&lt;/h3&gt;
+&lt;p&gt;According to the &lt;code&gt;FME&lt;/code&gt; vingette, in a global sensitivity analysis certain parameters (the sensitivity parameters) are varied over a large range, and the effect on model output variables (the sensitivity variables) is measured. To accomplish this, a distribution is defined for each sensitivity parameter and the model is run multiple times, each time drawing values for the sensistivity parameters from their distribution. The sensitivity variables are recorded for each iteration over a range of times. The function &lt;code&gt;sensRange()&lt;/code&gt; carries out global sensitivity analyses.&lt;/p&gt;
+&lt;p&gt;I’ll look at the sensitivity of the populations to the growth rate (&lt;span class=&#34;math inline&#34;&gt;\(\alpha\)&lt;/span&gt;) and the predation rate (&lt;span class=&#34;math inline&#34;&gt;\(\beta\)&lt;/span&gt;). Defining the sensitivity parameter distributions requires providing a data frame in which the first column is the minimum value, the second column the maximum, and the row names are the parameter names.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;par_ranges &amp;lt;- data.frame(min = c(0.75, 0.15),
+                         max = c(1.25, 0.25),
+                         row.names = c(&amp;quot;alpha&amp;quot;, &amp;quot;beta&amp;quot;))
+par_ranges
+#&amp;gt;        min  max
+#&amp;gt; alpha 0.75 1.25
+#&amp;gt; beta  0.15 0.25&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now I use &lt;code&gt;sensRange()&lt;/code&gt; to solve the models over the range of parameters. The argument &lt;code&gt;dist = &#34;grid&#34;&lt;/code&gt; sets the sensitivity parameter distribution to a regular grid of values, &lt;code&gt;sensvar&lt;/code&gt; defines which variables are the sensitivity variables (i.e. the ones whose time series will be returned in the output), &lt;code&gt;num&lt;/code&gt; is the number of iterations and therefore the number of different sensistivity parameter values (note that if there are &lt;span class=&#34;math inline&#34;&gt;\(k\)&lt;/span&gt; sensitivity parameters, &lt;code&gt;num&lt;/code&gt; must have an integer &lt;span class=&#34;math inline&#34;&gt;\(k\)&lt;/span&gt;th root), and times is the time series over which to evaluate the model.&lt;/p&gt;
+&lt;p&gt;The output of this function is a data frame with rows corresponding to the different sensitivity parameter values and columns corresponding to the combination of time steps and sensitivity variables. So, for &lt;code&gt;n&lt;/code&gt; time steps, there are &lt;code&gt;n&lt;/code&gt; columns for each sensitivity variable. First I run a simple sensitivity analysis to aid examination of the output.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_glob_sens &amp;lt;- sensRange(func = lv_model, parms = pars, dist = &amp;quot;grid&amp;quot;,
+                          sensvar = c(&amp;quot;x&amp;quot;, &amp;quot;y&amp;quot;), parRange = par_ranges,
+                          num = 4, times = seq(0, 1, by = 0.5))
+lv_glob_sens
+#&amp;gt;   alpha beta x0 x0.5   x1 y0 y0.5   y1
+#&amp;gt; 1  0.75 0.15  1 1.26 1.59  2 1.89 1.80
+#&amp;gt; 2  1.25 0.15  1 1.61 2.62  2 1.90 1.86
+#&amp;gt; 3  0.75 0.25  1 1.14 1.30  2 1.93 1.89
+#&amp;gt; 4  1.25 0.25  1 1.46 2.14  2 1.95 1.97&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Here variables such as &lt;code&gt;x0.5&lt;/code&gt; refer to the values of &lt;span class=&#34;math inline&#34;&gt;\(x\)&lt;/span&gt; at &lt;span class=&#34;math inline&#34;&gt;\(t=0.5\)&lt;/span&gt;. &lt;code&gt;FME&lt;/code&gt; provides a &lt;code&gt;plot()&lt;/code&gt; method for &lt;code&gt;sensRange&lt;/code&gt; objects, which adds envelopes to the variables showing the range and mean ± standard deviation. Now I run a more realistic sensitivity analysis and produce the plots. Note that &lt;code&gt;summary()&lt;/code&gt; must be called before &lt;code&gt;plot()&lt;/code&gt; to get the desired plots.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_glob_sens &amp;lt;- sensRange(func = lv_model, parms = pars, dist = &amp;quot;grid&amp;quot;,
+                          sensvar = c(&amp;quot;x&amp;quot;, &amp;quot;y&amp;quot;), parRange = par_ranges,
+                          num = 100, times = seq(0, 50, by = 0.25))
+lv_glob_sens %&amp;gt;% 
+  summary() %&amp;gt;% 
+  plot(main = c(&amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;),
+       xlab = &amp;quot;Time&amp;quot;, ylab = &amp;quot;Population density&amp;quot;,
+       col = c(&amp;quot;lightblue&amp;quot;, &amp;quot;darkblue&amp;quot;))
+mtext(&amp;quot;Sensitivity to alpha and beta&amp;quot;, outer = TRUE, line = -1.5, side = 3, 
+      cex = 1.25)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sense-real-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;To actually work with these data, I’ll transform the data frame from wide to long format using &lt;code&gt;tidyr&lt;/code&gt;. &lt;code&gt;gather()&lt;/code&gt; converts from wide to long format, then &lt;code&gt;separate()&lt;/code&gt; splits column names &lt;code&gt;x1.5&lt;/code&gt; into two fields: one identifying the variable (&lt;code&gt;x&lt;/code&gt;) and one specifying the time step (&lt;code&gt;1.5&lt;/code&gt;).&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_sens_long &amp;lt;- lv_glob_sens %&amp;gt;% 
+  gather(key, abundance, -alpha, -beta) %&amp;gt;% 
+  separate(key, into = c(&amp;quot;species&amp;quot;, &amp;quot;t&amp;quot;), sep = 1) %&amp;gt;% 
+  mutate(t = parse_number(t)) %&amp;gt;% 
+  select(species, t, alpha, beta, abundance)
+head(lv_sens_long)
+#&amp;gt;   species t alpha beta abundance
+#&amp;gt; 1       x 0 0.750 0.15         1
+#&amp;gt; 2       x 0 0.806 0.15         1
+#&amp;gt; 3       x 0 0.861 0.15         1
+#&amp;gt; 4       x 0 0.917 0.15         1
+#&amp;gt; 5       x 0 0.972 0.15         1
+#&amp;gt; 6       x 0 1.028 0.15         1
+glimpse(lv_sens_long)
+#&amp;gt; Observations: 40,200
+#&amp;gt; Variables: 5
+#&amp;gt; $ species   &amp;lt;chr&amp;gt; &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;,…
+#&amp;gt; $ t         &amp;lt;dbl&amp;gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
+#&amp;gt; $ alpha     &amp;lt;dbl&amp;gt; 0.750, 0.806, 0.861, 0.917, 0.972, 1.028, 1.083, 1.139, 1.1…
+#&amp;gt; $ beta      &amp;lt;dbl&amp;gt; 0.150, 0.150, 0.150, 0.150, 0.150, 0.150, 0.150, 0.150, 0.1…
+#&amp;gt; $ abundance &amp;lt;dbl&amp;gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now, I can, for example, recreate the above plot with &lt;code&gt;ggplot2&lt;/code&gt;. First, I summarize the data to calculate the envelopes, then I plot.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_sens_summ &amp;lt;- lv_sens_long %&amp;gt;% 
+  group_by(species, t) %&amp;gt;% 
+  summarize(a_mean = mean(abundance),
+            a_min = min(abundance), a_max = max(abundance),
+            a_sd = sd(abundance)) %&amp;gt;% 
+  ungroup() %&amp;gt;% 
+  mutate(a_psd = a_mean + a_sd, a_msd = a_mean - a_sd,
+         species = if_else(species == &amp;quot;x&amp;quot;, &amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;),
+         species = factor(species, levels = c(&amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;)))
+ggplot(lv_sens_summ, aes(x = t, group = species)) +
+  # mean+-sd
+  geom_ribbon(aes(ymin = a_msd, ymax = a_psd, fill = species), alpha = 0.2) +
+  # mean
+  geom_line(aes(y = a_mean, color = species)) +
+  labs(title = &amp;quot;Sensitivity to alpha and beta (mean ± sd)&amp;quot;, 
+       subtitle = &amp;quot;alpha = [0.75, 1.25]; beta = [0.15, 0.25]&amp;quot;,
+       x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;) +
+  scale_color_brewer(NULL, palette = &amp;quot;Set1&amp;quot;) +
+  scale_fill_brewer(NULL, palette = &amp;quot;Set1&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sens-ggplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;In this format, it’s also easy to fix one of the values for a sensitivity parameter and only vary the other one.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_sens_summ &amp;lt;- lv_sens_long %&amp;gt;% 
+  # fix beta at 0.15
+  filter(beta == 0.15) %&amp;gt;% 
+  group_by(species, t) %&amp;gt;% 
+  summarize(a_mean = mean(abundance),
+            a_min = min(abundance), a_max = max(abundance),
+            a_sd = sd(abundance)) %&amp;gt;% 
+  ungroup() %&amp;gt;% 
+  mutate(a_psd = a_mean + a_sd, a_msd = a_mean - a_sd,
+         species = if_else(species == &amp;quot;x&amp;quot;, &amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;),
+         species = factor(species, levels = c(&amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;)))
+ggplot(lv_sens_summ, aes(x = t, group = species)) +
+  # mean+-sd
+  geom_ribbon(aes(ymin = a_msd, ymax = a_psd, fill = species), alpha = 0.2) +
+  # mean
+  geom_line(aes(y = a_mean, color = species)) +
+  labs(title = &amp;quot;Sensitivity to alpha at fixed beta (mean ± sd)&amp;quot;, 
+       subtitle = &amp;quot;alpha = [0.75, 1.25]; beta = 0.15&amp;quot;,
+       x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;) +
+  scale_color_brewer(NULL, palette = &amp;quot;Set1&amp;quot;) +
+  scale_fill_brewer(NULL, palette = &amp;quot;Set1&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sens-ggplot-fix-beta-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;local-sensitivity-analysis&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Local sensitivity analysis&lt;/h3&gt;
+&lt;p&gt;According to the &lt;code&gt;FME&lt;/code&gt; vingette, in a local sensitivity analysis, “the effect of a parameter value in a very small region near its nominal value is estimated”. The method used by &lt;code&gt;FME&lt;/code&gt; is to calculate a matrix of &lt;strong&gt;sensitivity functions&lt;/strong&gt;, &lt;span class=&#34;math inline&#34;&gt;\(S_{i,j}\)&lt;/span&gt;, defined by:&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;math display&#34;&gt;\[
+S_{i,j} = f(v_i, p_i) = \frac{dv_i}{dp_j} \frac{s_{p_j}}{s_{v_i}}
+\]&lt;/span&gt;&lt;/p&gt;
+&lt;p&gt;where &lt;span class=&#34;math inline&#34;&gt;\(v_i\)&lt;/span&gt; is a sensitivity variable &lt;span class=&#34;math inline&#34;&gt;\(i\)&lt;/span&gt; (which is dependent on time &lt;span class=&#34;math inline&#34;&gt;\(t\)&lt;/span&gt;), &lt;span class=&#34;math inline&#34;&gt;\(p_j\)&lt;/span&gt; is sensitivity parameter &lt;span class=&#34;math inline&#34;&gt;\(j\)&lt;/span&gt;, and &lt;span class=&#34;math inline&#34;&gt;\(s_{v_i}\)&lt;/span&gt; and &lt;span class=&#34;math inline&#34;&gt;\(s_{p_j}\)&lt;/span&gt; are scaling factors for variables and parameters, respectively. By default, &lt;code&gt;FME&lt;/code&gt; takes the scaling values to be equal to the underlying quantities, in which case the above equation simplifies to:&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;math display&#34;&gt;\[
+S_{i,j} = f(v_i, p_i) = \frac{dv_i}{dp_j} \frac{p_j}{v_i}
+\]&lt;/span&gt;&lt;/p&gt;
+&lt;p&gt;The function &lt;code&gt;sensFun()&lt;/code&gt; is used to numerically estimate these sensitivity functions at a series of time steps. The arguments &lt;code&gt;sensvar&lt;/code&gt; and &lt;code&gt;senspar&lt;/code&gt; are used to define which variables and parameters, respectively, will be investigated in the sensitivity analysis. By default, all variables are parameters are included. The arguments &lt;code&gt;varscale&lt;/code&gt; and &lt;code&gt;parscale&lt;/code&gt; define the scaling factors; however, for now, I’ll leave them blank, which sets them to the underlying quantities as in the above equation.&lt;/p&gt;
+&lt;p&gt;In practice, &lt;code&gt;sensFun()&lt;/code&gt; works by applying a small perturbation, &lt;span class=&#34;math inline&#34;&gt;\(\delta_j\)&lt;/span&gt;, to parameter &lt;span class=&#34;math inline&#34;&gt;\(j\)&lt;/span&gt;, solving the model for a range of time steps to determine &lt;span class=&#34;math inline&#34;&gt;\(v_i\)&lt;/span&gt;, then taking the ratio of the changes to the parameters and variables. The perturbation is defined by the argument &lt;code&gt;tiny&lt;/code&gt; as &lt;span class=&#34;math inline&#34;&gt;\(\delta_j = \text{max}(tiny, tiny * p_j)\)&lt;/span&gt;. &lt;code&gt;tiny&lt;/code&gt; defaults to &lt;span class=&#34;math inline&#34;&gt;\(10^{-8}\)&lt;/span&gt;.&lt;/p&gt;
+&lt;p&gt;To test that &lt;code&gt;sensFun()&lt;/code&gt; is doing what I think it is, I’ll implement a version of it. For simplicity, I’ll only consider the variable &lt;span class=&#34;math inline&#34;&gt;\(x\)&lt;/span&gt; (prey density):&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;sen_fun &amp;lt;- function(fun, pars, times, tiny = 1e-8) {
+  # the unperturbed values, just x
+  v_unpert &amp;lt;- fun(pars, times)[, &amp;quot;x&amp;quot;]
+  # loop over parameters, pertuburbing each in turn
+  s_ij &amp;lt;- matrix(NA, nrow = length(times), ncol = (1 + length(pars)))
+  s_ij[, 1] &amp;lt;- times
+  colnames(s_ij) &amp;lt;- c(&amp;quot;t&amp;quot;, names(pars))
+  for (j in seq_along(pars)) {
+    # perturb the ith parameter
+    delta &amp;lt;- max(tiny, abs(tiny * pars[j]))
+    p_pert &amp;lt;- pars
+    p_pert[j] &amp;lt;- p_pert[j] + delta
+    # solve model
+    v_pert &amp;lt;- fun(pars = p_pert, times = times)[, &amp;quot;x&amp;quot;]
+    # calculate the resulting difference in variables at each timestep, just x
+    delta_v &amp;lt;- (v_pert - v_unpert)
+    # finally, calculate the sensitivity function at each time step
+    s_ij[, j + 1] &amp;lt;- (delta_v / delta) * (pars[j] / v_unpert)
+  }
+  return(s_ij)
+}&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now I compare this implementation to the actual results.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;test_pars &amp;lt;- c(alpha = 1.5, beta = 0.2, delta = 0.5, gamma = 0.2)
+sen_fun(lv_model, pars = test_pars, times = 0:2)
+#&amp;gt;      t alpha   beta  delta  gamma
+#&amp;gt; [1,] 0  0.00  0.000  0.000 0.0000
+#&amp;gt; [2,] 1  1.48 -0.415 -0.029 0.0386
+#&amp;gt; [3,] 2  2.69 -0.966 -0.210 0.1655
+sensFun(lv_model, parms = test_pars, sensvar = &amp;quot;x&amp;quot;, times = 0:2)
+#&amp;gt;   x var alpha   beta  delta  gamma
+#&amp;gt; 1 0   x  0.00  0.000  0.000 0.0000
+#&amp;gt; 2 1   x  1.48 -0.415 -0.029 0.0386
+#&amp;gt; 3 2   x  2.69 -0.966 -0.210 0.1655&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;A perfect match! Now that I know what &lt;code&gt;sensFun()&lt;/code&gt; is actually doing, I’ll put it to use to solve the original LV model. One difference here is that I’ll consider both variables as sensitivity variables and the results for each variable will be stacked rowwise. In addition, in the &lt;code&gt;FME&lt;/code&gt; documentation, &lt;span class=&#34;math inline&#34;&gt;\(s_{v_i}\)&lt;/span&gt; is set to 1, which is on the order of the actual variable values, but has the benefit of being constant over time. I’ll do the same here.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_loc_sens &amp;lt;- sensFun(lv_model, parms = pars, varscale = 1, 
+                       times = seq(0, 50, by = 0.25))
+head(lv_loc_sens)
+#&amp;gt;      x var alpha   beta    delta   gamma
+#&amp;gt; 1 0.00   x 0.000  0.000  0.00000 0.00000
+#&amp;gt; 2 0.25   x 0.291 -0.116 -0.00151 0.00286
+#&amp;gt; 3 0.50   x 0.677 -0.272 -0.00729 0.01316
+#&amp;gt; 4 0.75   x 1.182 -0.478 -0.01997 0.03413
+#&amp;gt; 5 1.00   x 1.833 -0.749 -0.04341 0.07015
+#&amp;gt; 6 1.25   x 2.663 -1.104 -0.08330 0.12706
+tail(lv_loc_sens)
+#&amp;gt;        x var alpha  beta  delta gamma
+#&amp;gt; 397 48.8   y -1.95 -5.45 -0.933 -9.07
+#&amp;gt; 398 49.0   y -1.81 -4.95 -0.831 -8.38
+#&amp;gt; 399 49.2   y -1.66 -4.43 -0.725 -7.64
+#&amp;gt; 400 49.5   y -1.49 -3.90 -0.614 -6.87
+#&amp;gt; 401 49.8   y -1.30 -3.34 -0.495 -6.04
+#&amp;gt; 402 50.0   y -1.08 -2.75 -0.367 -5.15&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;summary()&lt;/code&gt; can be used to summarize these results over the time series, for example, to see which parameters the model is most sensitive too.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;summary(lv_loc_sens)
+#&amp;gt;       value scale   L1   L2 Mean Min Max   N
+#&amp;gt; alpha   1.0   1.0  6.5 11.2  2.2 -35  44 402
+#&amp;gt; beta    0.2   0.2  8.3 12.5 -4.1 -56  33 402
+#&amp;gt; delta   0.5   0.5  2.5  4.3 -1.1 -19  11 402
+#&amp;gt; gamma   0.2   0.2 10.8 18.2 -0.1 -78  74 402&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; (predator mortality rate) and &lt;span class=&#34;math inline&#34;&gt;\(\beta\)&lt;/span&gt; (predator search efficiency) have the largest values for the sensitivity function, on average, suggesting that this model is most sensitive to these parameters. There is also plot method for the output of &lt;code&gt;sensFun()&lt;/code&gt;, which plots the sensitivity functions as time series.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;plot(lv_loc_sens)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/loc-base-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;However, it’s also possible to use &lt;code&gt;ggplot2&lt;/code&gt; provided I transpose the data to long format first.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_loc_long &amp;lt;- lv_loc_sens %&amp;gt;% 
+  gather(parameter, sensitivity, -x, -var) %&amp;gt;% 
+  mutate(var = if_else(var == &amp;quot;x&amp;quot;, &amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;))
+ggplot(lv_loc_long, aes(x = x, y = sensitivity)) +
+  geom_line(aes(colour = parameter, linetype = var)) +
+  scale_color_brewer(&amp;quot;Parameter&amp;quot;, palette = &amp;quot;Set1&amp;quot;) +
+  scale_linetype_discrete(&amp;quot;Variable&amp;quot;) +
+  labs(title = &amp;quot;Lotka-Volterra parameter sensitivity functions&amp;quot;, 
+       subtitle = paste(names(pars), pars, sep = &amp;quot; = &amp;quot;, collapse = &amp;quot;; &amp;quot;),
+       x = &amp;quot;Time&amp;quot;, y = &amp;quot;Sensitivity&amp;quot;) + 
+  theme(legend.position = &amp;quot;bottom&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/loc-ggplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;Clearly this model is particularly sensitive to &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt;. Furthermore, this sensitivity shows peaks every 16 seconds or so, which is the periodicity of the original dynamics. To see what’s going on here, I’ll take a look at what happens to the two species when I increase &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; by 1%:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# original model
+lv_results &amp;lt;- lv_model(pars, times = seq(0, 50, by = 0.25)) %&amp;gt;% 
+  data.frame() %&amp;gt;% 
+  gather(var, pop, -time) %&amp;gt;% 
+  mutate(var = if_else(var == &amp;quot;x&amp;quot;, &amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;),
+         par = as.character(pars[&amp;quot;gamma&amp;quot;]))
+# perturbed model
+new_pars &amp;lt;- pars
+new_pars[&amp;quot;gamma&amp;quot;] &amp;lt;- new_pars[&amp;quot;gamma&amp;quot;] * 1.1
+lv_results_gamma &amp;lt;- lv_model(new_pars, times = seq(0, 50, by = 0.25)) %&amp;gt;% 
+  data.frame() %&amp;gt;% 
+  gather(var, pop, -time) %&amp;gt;% 
+  mutate(var = if_else(var == &amp;quot;x&amp;quot;, &amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;),
+         par = as.character(new_pars[&amp;quot;gamma&amp;quot;]))
+# plot
+ggplot(bind_rows(lv_results, lv_results_gamma), aes(x = time, y = pop)) +
+  geom_line(aes(color = var, linetype = par)) +
+  scale_color_brewer(&amp;quot;Species&amp;quot;, palette = &amp;quot;Set1&amp;quot;) +
+  scale_linetype_discrete(&amp;quot;gamma&amp;quot;) +
+  labs(title = &amp;quot;Lotka-Volterra predator prey model&amp;quot;,
+       subtitle = &amp;quot;Increasing gamma leads to period increasing with time&amp;quot;,
+       x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;) +
+  theme(legend.position = &amp;quot;bottom&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/gamma-pert-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;Increasing &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; leads to a time dependent period to the dynamics. As a result, the two models initially overlap, but they become increasingly out of sync over time. This explains both the periodicity of the sensitivity function and the increasing amplitude.&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Fishnets and Honeycomb: Square vs. Hexagonal Spatial Grids</title>
+      <link>/post/hexagonal-grids/</link>
+      <pubDate>Thu, 14 Jan 2016 00:00:00 +0000</pubDate>
+      <guid>/post/hexagonal-grids/</guid>
+      <description>
+
+
+&lt;p&gt;In spatial analysis, we often define &lt;a href=&#34;https://en.wikipedia.org/wiki/Grid_(spatial_index)&#34;&gt;grids&lt;/a&gt; of points or polygons to sample, index, or partition a study area. For example, we may want to overlay a study area with a grid of points as part of some regular spatial sampling scheme, divide a large region into smaller units for indexing purposes as with UTM grid zones, or slice the study area into subunits over which we summarize a spatial variable. In the latter scenario, the most common approach is to use a raster format, in which a grid of uniform square cells is overlayed on a study area and each cell is assigned a value for the spatial variables of interest. In ecology and conservation applications, variables may include number of individuals of a threatened species per grid cell, elevation, mean annual rainfall, or land use.&lt;/p&gt;
+&lt;p&gt;From my experience, using square cells is by far the most common method for defining grids; however, other options are possible. In fact, any &lt;a href=&#34;https://en.wikipedia.org/wiki/Euclidean_tilings_by_convex_regular_polygons&#34;&gt;regular tesselation of the plane&lt;/a&gt; (i.e. the tiling of a plane with contiguous regular polygons of the same type), can act as a spatial grid. Tessellation is well studied mathematically and there are just &lt;a href=&#34;https://en.wikipedia.org/wiki/Euclidean_tilings_by_convex_regular_polygons#Regular_tilings&#34;&gt;three possible regular tesselations&lt;/a&gt;: equilateral triangles, squares, and regular hexagons. A forth option is a diamond pattern arising from merging pairs of equilateral triangles; however diamonds are not regular polygons. The following images from Wikipedia&lt;sup id=&#34;a1&#34;&gt;&lt;a href=&#34;#f1&#34;&gt;1&lt;/a&gt;, &lt;a href=&#34;#f2&#34;&gt;2&lt;/a&gt;, &lt;a href=&#34;#f3&#34;&gt;3&lt;/a&gt;&lt;/sup&gt; demonstrate these tessellations:&lt;/p&gt;
+&lt;div style=&#34;text-align: center; display: inline;&#34;&gt;
+&lt;p&gt;&lt;img src=&#34;1-uniform_n11.svg&#34; style=&#34;width: 30%;&#34; /&gt;
+&lt;img src=&#34;1-uniform_n5.svg&#34; style=&#34;width: 30%;&#34; /&gt;
+&lt;img src=&#34;1-uniform_n1.svg&#34; style=&#34;width: 30%;&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;p&gt;Recently I’ve seen a few instances of the use of &lt;strong&gt;hexagonal grids&lt;/strong&gt;, especially in systematic reserve design, and I’ve become curious about the benefits (and drawbacks) of using them compared to traditional square grids. In this post I’ll discuss the relative benefits and show how to generate different types of grids in R.&lt;/p&gt;
+&lt;div id=&#34;comparing-benefits&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Comparing Benefits&lt;/h1&gt;
+&lt;p&gt;I begin by comparing the benefits of square and hexagonal grids. Most of these points come directly from &lt;a href=&#34;http://gis.stackexchange.com/questions/82362/what-are-the-benefits-of-hexagonal-sampling-polygons&#34;&gt;this excellent GIS StackExchange question&lt;/a&gt;.&lt;/p&gt;
+&lt;div id=&#34;square-grids&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Square grids&lt;/h2&gt;
+&lt;p&gt;Raster datasets are the most ubiquitous type of square grid used in GIS. The most notable benefits of this format compared to hexagonal grids are:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Simplicity of definition and data storage&lt;/strong&gt;: the only explicitly geographical information required to define a raster grid are the coordinates of the origin (e.g. bottom left corner), the cell size, and grid dimensions (i.e. number of cells in each direction). The attribute data can be stored as an aspatial matrix, and the geographical location of any cell can be derived given that cell’s position relative to the origin. This makes data storage and retrieval easier since the coordinates of the vertices of each grid cell are not explicitly stored.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Ease of resampling to different spatial scales&lt;/strong&gt;: increasing the spatial resolution of a square grid is just a matter of dividing each grid cell into four. Similarly, decreasing the spatial resolution only requires combining groups of four cells into one, typically with some algebraic operation to aggregate the attribute data to the coarser resolution.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Relationship between cells is given&lt;/strong&gt;: there is no need for computationally expensive spatial operations to determine distances or the adjacency relationship between cells.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Combining raster layers is simple&lt;/strong&gt;: algebraic operations combining multiple raster layers built on the same template simplifies to matrix algebra; no spatial operations are required.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div id=&#34;hexagonal-grids&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Hexagonal grids&lt;/h2&gt;
+&lt;p&gt;Regular hexagons are the closest shape to a circle that can be used for the regular tessellation of a plane and they have additional symmetries compared to squares. These properties give rise to the following benefits.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Reduced edge effects&lt;/strong&gt;: a hexagonal grid gives the lowest perimeter to area ratio of any regular tessellation of the plane. In practice, this means that edge effects are minimized when working with hexagonal grids. This is essentially the same reason &lt;a href=&#34;https://en.wikipedia.org/wiki/Honeycomb_conjecture&#34;&gt;beehives are built from hexagonal honeycomb&lt;/a&gt;: it is the arrangement that minimizes the amount of material used to create a lattice of cells with a given volume.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;All neighbours are identical&lt;/strong&gt;: square grids have two classes of neighbours, those in the cardinal directions that share an edge and those in diagonal directions that share a vertex. In contrast, a hexagonal grid cell has six identical neighbouring cells, each sharing one of the six equal length sides. Furthermore, the distance between centroids is the same for all neighbours.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Better fit to curved surfaces&lt;/strong&gt;: when dealing with large areas, where the curvature of the earth becomes important, hexagons are better able to fit this curvature than squares. This is why soccer balls are constructed of hexagonal panels.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;They look badass&lt;/strong&gt;: it can’t be denied that hexagonal grids look way more impressive than square grids!&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;grids-in-r&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Grids in R&lt;/h1&gt;
+&lt;div id=&#34;required-packages&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Required packages&lt;/h2&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(dplyr)
+library(tidyr)
+library(sp)
+library(raster)
+library(rgeos)
+library(rgbif)
+library(viridis)
+library(gridExtra)
+library(rasterVis)
+set.seed(1)&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;study-region&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Study region&lt;/h2&gt;
+&lt;p&gt;In the following demonstrations, I’ll use Sri Lanka as an example study area. The &lt;code&gt;getData()&lt;/code&gt; function from the &lt;code&gt;raster&lt;/code&gt; package downloads country boundaries from the &lt;a href=&#34;http://www.gadm.org/&#34;&gt;Global Administrative Areas (GADM) database&lt;/a&gt;. I clean this up a little by removing the attribute information and any polygons other than the main island of Sri Lanka.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;study_area &amp;lt;- getData(&amp;quot;GADM&amp;quot;, country = &amp;quot;LKA&amp;quot;, level = 0, path = tempdir()) %&amp;gt;% 
+  disaggregate %&amp;gt;% 
+  geometry
+study_area &amp;lt;- sapply(study_area@polygons, slot, &amp;quot;area&amp;quot;) %&amp;gt;% 
+  {which(. == max(.))} %&amp;gt;% 
+  study_area[.]
+plot(study_area, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = TRUE, cex = 20)
+text(81.5, 9.5, &amp;quot;Study Area:\nSri Lanka&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/study-region-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;creating-grids&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Creating grids&lt;/h2&gt;
+&lt;div id=&#34;hexagonal-grids-1&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Hexagonal grids&lt;/h3&gt;
+&lt;p&gt;There is no function in R that will directly generate a hexagonal grid of polygons covering a given region; however, it can be accomplished by first generating a hexagonal grid of points with &lt;code&gt;spsample&lt;/code&gt;, then converting this point grid to a grid of polygons with &lt;code&gt;HexPoints2SpatialPolygons&lt;/code&gt;.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;size &amp;lt;- 0.5
+hex_points &amp;lt;- spsample(study_area, type = &amp;quot;hexagonal&amp;quot;, cellsize = size)
+hex_grid &amp;lt;- HexPoints2SpatialPolygons(hex_points, dx = size)
+plot(study_area, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = TRUE)
+plot(hex_points, col = &amp;quot;black&amp;quot;, pch = 20, cex = 0.5, add = T)
+plot(hex_grid, border = &amp;quot;orange&amp;quot;, add = T)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/hex-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;A few issues arise with this simple method:&lt;/p&gt;
+&lt;ol style=&#34;list-style-type: decimal&#34;&gt;
+&lt;li&gt;&lt;code&gt;spsample&lt;/code&gt; generates a different grid of points each time it’s called because the grid offset is chosen randomly by default. This can be fixed by setting the offset parameter explicitly with &lt;code&gt;offset = c(0, 0)&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Only cells whose centroid is fully within the study area polygon are created. By buffering the study area it’s possible to get full coverage by the grid, which is usually what is desired.&lt;/li&gt;
+&lt;li&gt;In some cases it may be desirable to clip the grid to the study area polygon so that cells on the edge match the shape of the study area. This seems to often be the case when setting up a grid of planning units for systematic reserve design. For example, the official &lt;a href=&#34;http://www.uq.edu.au/marxan/intro-info&#34;&gt;Marxan tutorial&lt;/a&gt; takes this approach. Clipping can be performed using &lt;code&gt;rgeos::gIntersection()&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;The resolution of the grid is determined by the &lt;code&gt;cellsize&lt;/code&gt; parameter, which is the distance (&lt;span class=&#34;math inline&#34;&gt;\(d\)&lt;/span&gt;) between centroids of neighbouring cells. Other ways of defining cell size are the area (&lt;span class=&#34;math inline&#34;&gt;\(A\)&lt;/span&gt;), side length (&lt;span class=&#34;math inline&#34;&gt;\(s\)&lt;/span&gt;), or radius (&lt;span class=&#34;math inline&#34;&gt;\(r\)&lt;/span&gt;), and these are all related by:&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;span class=&#34;math display&#34;&gt;\[
+A = \frac{3\sqrt{3}}{2}s^2=2\sqrt{3}r^2=\frac{\sqrt{3}}{2}d^2
+\]&lt;/span&gt;&lt;/p&gt;
+&lt;p&gt;I incorporate all these refinements into a function that generates hexagonal grids.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;make_grid &amp;lt;- function(x, cell_diameter, cell_area, clip = FALSE) {
+  if (missing(cell_diameter)) {
+    if (missing(cell_area)) {
+      stop(&amp;quot;Must provide cell_diameter or cell_area&amp;quot;)
+    } else {
+      cell_diameter &amp;lt;- sqrt(2 * cell_area / sqrt(3))
+    }
+  }
+  ext &amp;lt;- as(extent(x) + cell_diameter, &amp;quot;SpatialPolygons&amp;quot;)
+  projection(ext) &amp;lt;- projection(x)
+  # generate array of hexagon centers
+  g &amp;lt;- spsample(ext, type = &amp;quot;hexagonal&amp;quot;, cellsize = cell_diameter, 
+                offset = c(0.5, 0.5))
+  # convert center points to hexagons
+  g &amp;lt;- HexPoints2SpatialPolygons(g, dx = cell_diameter)
+  # clip to boundary of study area
+  if (clip) {
+    g &amp;lt;- gIntersection(g, x, byid = TRUE)
+  } else {
+    g &amp;lt;- g[x, ]
+  }
+  # clean up feature IDs
+  row.names(g) &amp;lt;- as.character(1:length(g))
+  return(g)
+}&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Using this function I generate a grid of &lt;span class=&#34;math inline&#34;&gt;\(625km^2\)&lt;/span&gt; (&lt;span class=&#34;math inline&#34;&gt;\(25km\)&lt;/span&gt; by &lt;span class=&#34;math inline&#34;&gt;\(25km\)&lt;/span&gt;) cells with and without clipping. This requires projecting the study area polygon to measure distance in kilometers.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;study_area_utm &amp;lt;- CRS(&amp;quot;+proj=utm +zone=44 +datum=WGS84 +units=km +no_defs&amp;quot;) %&amp;gt;% 
+  spTransform(study_area, .)
+# without clipping
+hex_grid &amp;lt;- make_grid(study_area_utm, cell_area = 625, clip = FALSE)
+plot(study_area_utm, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = FALSE)
+plot(hex_grid, border = &amp;quot;orange&amp;quot;, add = TRUE)
+box()
+# with clipping
+hex_grid &amp;lt;- make_grid(study_area_utm, cell_area = 625, clip = TRUE)
+plot(study_area_utm, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = FALSE)
+plot(hex_grid, border = &amp;quot;orange&amp;quot;, add = TRUE)
+box()&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/nice-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;square-grid&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Square grid&lt;/h3&gt;
+&lt;p&gt;Creating and working with raster datasets in R is well covered elsewhere, for example in the vignettes for the &lt;code&gt;raster&lt;/code&gt; package, so I won’t delve too deeply into it. Briefly, &lt;code&gt;RasterLayer&lt;/code&gt; objects can easily be created that cover the extent of a &lt;code&gt;Spatial*&lt;/code&gt; object. I use a cell size of &lt;span class=&#34;math inline&#34;&gt;\(625km^2\)&lt;/span&gt; to match the above hexagonal grid, and fill the raster with binary data indicating whether cells are inside or outside the study area.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;r &amp;lt;- raster(study_area_utm, resolution = 25)
+r &amp;lt;- rasterize(study_area_utm, r, field = 1)
+plot(r, col = &amp;quot;grey50&amp;quot;, axes = FALSE, legend = FALSE, bty=&amp;quot;n&amp;quot;, box=FALSE)
+plot(study_area_utm, add = TRUE)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/raster-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;In addition to the raster formats defined in the &lt;code&gt;raster&lt;/code&gt; package, the &lt;code&gt;sp&lt;/code&gt; package offers several options for square grids. The class &lt;code&gt;SpatialPixels&lt;/code&gt; is used for partial grids (i.e. not every cell included) and stores the coordinates of all included cell centers. &lt;code&gt;SpatialGrid&lt;/code&gt; objects store full grids and do not store coordinates explicitly. Underlying both classes is the &lt;code&gt;GridTopology&lt;/code&gt; class, which stores the grid template (origin, cell size, and dimensions). I never use these classes since the &lt;code&gt;raster&lt;/code&gt; classes and methods are more intuitive and efficient.&lt;/p&gt;
+&lt;p&gt;The final option from the &lt;code&gt;sp&lt;/code&gt; package is simply to store a square grid as polygons (&lt;code&gt;SpatialPolygons&lt;/code&gt; object), just as I did with the hexagonal grids above. In this case, I find the easiest way to define a grid of square polygons is to start with an empty &lt;code&gt;RasterLayer&lt;/code&gt; object, coerce it to &lt;code&gt;SpatialPolygons&lt;/code&gt;, and clip it as necessary. I incorporate this into the above grid generation function, which now creates hexagonal &lt;em&gt;or&lt;/em&gt; square grids as desired.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;make_grid &amp;lt;- function(x, type, cell_width, cell_area, clip = FALSE) {
+  if (!type %in% c(&amp;quot;square&amp;quot;, &amp;quot;hexagonal&amp;quot;)) {
+    stop(&amp;quot;Type must be either &amp;#39;square&amp;#39; or &amp;#39;hexagonal&amp;#39;&amp;quot;)
+  }
+  
+  if (missing(cell_width)) {
+    if (missing(cell_area)) {
+      stop(&amp;quot;Must provide cell_width or cell_area&amp;quot;)
+    } else {
+      if (type == &amp;quot;square&amp;quot;) {
+        cell_width &amp;lt;- sqrt(cell_area)
+      } else if (type == &amp;quot;hexagonal&amp;quot;) {
+        cell_width &amp;lt;- sqrt(2 * cell_area / sqrt(3))
+      }
+    }
+  }
+  # buffered extent of study area to define cells over
+  ext &amp;lt;- as(extent(x) + cell_width, &amp;quot;SpatialPolygons&amp;quot;)
+  projection(ext) &amp;lt;- projection(x)
+  # generate grid
+  if (type == &amp;quot;square&amp;quot;) {
+    g &amp;lt;- raster(ext, resolution = cell_width)
+    g &amp;lt;- as(g, &amp;quot;SpatialPolygons&amp;quot;)
+  } else if (type == &amp;quot;hexagonal&amp;quot;) {
+    # generate array of hexagon centers
+    g &amp;lt;- spsample(ext, type = &amp;quot;hexagonal&amp;quot;, cellsize = cell_width, offset = c(0, 0))
+    # convert center points to hexagons
+    g &amp;lt;- HexPoints2SpatialPolygons(g, dx = cell_width)
+  }
+  
+  # clip to boundary of study area
+  if (clip) {
+    g &amp;lt;- gIntersection(g, x, byid = TRUE)
+  } else {
+    g &amp;lt;- g[x, ]
+  }
+  # clean up feature IDs
+  row.names(g) &amp;lt;- as.character(1:length(g))
+  return(g)
+}&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Plotting all four types of grids that &lt;code&gt;make_grid()&lt;/code&gt; can generate.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# hex - without clipping
+hex_grid &amp;lt;- make_grid(study_area_utm, type = &amp;quot;hexagonal&amp;quot;, cell_area = 625, clip = FALSE)
+plot(study_area_utm, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = FALSE)
+plot(hex_grid, border = &amp;quot;orange&amp;quot;, add = TRUE)
+box()
+# hex - with clipping
+hex_grid_c &amp;lt;- make_grid(study_area_utm, type = &amp;quot;hexagonal&amp;quot;, cell_area = 625, clip = TRUE)
+plot(study_area_utm, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = FALSE)
+plot(hex_grid_c, border = &amp;quot;orange&amp;quot;, add = TRUE)
+box()
+# square - without clipping
+sq_grid &amp;lt;- make_grid(study_area_utm, type = &amp;quot;square&amp;quot;, cell_area = 625, clip = FALSE)
+plot(study_area_utm, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = FALSE)
+plot(sq_grid, border = &amp;quot;orange&amp;quot;, add = TRUE)
+box()
+# square - with clipping
+sq_grid_c &amp;lt;- make_grid(study_area_utm, type = &amp;quot;square&amp;quot;, cell_area = 625, clip = TRUE)
+plot(study_area_utm, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = FALSE)
+plot(sq_grid_c, border = &amp;quot;orange&amp;quot;, add = TRUE)
+box()&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/square-polys-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;working-with-grids&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Working with grids&lt;/h2&gt;
+&lt;p&gt;Once you’ve created a hexagonal grid, you’ll likely want to aggregate some data over the grid cells. Here I demonstrate three common aggregation tasks I often run into: aggregating points, polygons, or rasters. In these examples, I’ll use spatial data for Ecuador.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;ecuador &amp;lt;- getData(name = &amp;quot;GADM&amp;quot;, country = &amp;quot;ECU&amp;quot;, level = 0, 
+                   path = tempdir()) %&amp;gt;% 
+  disaggregate %&amp;gt;% 
+  geometry
+# exclude gapalapos
+ecuador &amp;lt;- sapply(ecuador@polygons, slot, &amp;quot;area&amp;quot;) %&amp;gt;% 
+  {which(. == max(.))} %&amp;gt;% 
+  ecuador[.]
+# albers equal area for south america
+ecuador &amp;lt;- spTransform(ecuador, CRS(
+  paste(&amp;quot;+proj=aea +lat_1=-5 +lat_2=-42 +lat_0=-32 +lon_0=-60&amp;quot;,
+        &amp;quot;+x_0=0 +y_0=0 +ellps=aust_SA +units=km +no_defs&amp;quot;)))
+hex_ecu &amp;lt;- make_grid(ecuador, type = &amp;quot;hexagonal&amp;quot;, cell_area = 2500, clip = FALSE)&lt;/code&gt;&lt;/pre&gt;
+&lt;div id=&#34;point-density&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Point density&lt;/h3&gt;
+&lt;p&gt;It’s often necessary to summarize a set of point features (e.g. species occurrence points), over a grid by calculating the point density, i.e. the number of points within each grid cell. As an example, I’ll look at bird observations in Ecuador from &lt;a href=&#34;http://ebird.org/content/ebird/&#34;&gt;eBird&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;http://ebird.org/&#34;&gt;eBird&lt;/a&gt; is online tool for birders to record their sightings. Each month millions of observations are entered into eBird globally, making it among the largest citizen science projects in history. The &lt;a href=&#34;http://www.gbif.org/&#34;&gt;Global Biodiversity Information Facility&lt;/a&gt; (GBIF) is a repository for biodiversity occurrence records. They store and provide access to hundreds of millions of records from thousands of sources, including eBird. The &lt;a href=&#34;https://ropensci.org/&#34;&gt;rOpenSci&lt;/a&gt; package &lt;a href=&#34;https://ropensci.org/tutorials/rgbif_tutorial.html&#34;&gt;&lt;code&gt;rgbif&lt;/code&gt;&lt;/a&gt; provides a nice interface for importing GBIF records into R.&lt;/p&gt;
+&lt;p&gt;I grab a subset of eBird sightings for 4 arbitrarily chosen bird families: tanagers (&lt;a href=&#34;https://en.wikipedia.org/wiki/Hummingbird&#34;&gt;Trochilidae&lt;/a&gt;), hummingbirds (&lt;a href=&#34;https://en.wikipedia.org/wiki/Tanager&#34;&gt;Thraupidae&lt;/a&gt;), herons (&lt;a href=&#34;https://en.wikipedia.org/wiki/Heron&#34;&gt;Ardeidae&lt;/a&gt;), and hawks (&lt;a href=&#34;https://en.wikipedia.org/wiki/Accipitridae&#34;&gt;Accipitridae&lt;/a&gt;).&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;bird_families &amp;lt;- c(&amp;quot;Trochilidae&amp;quot;, &amp;quot;Thraupidae&amp;quot;, &amp;quot;Ardeidae&amp;quot;, &amp;quot;Accipitridae&amp;quot;)
+families &amp;lt;- data_frame(family = bird_families) %&amp;gt;% 
+  group_by(family) %&amp;gt;% 
+  do(name_suggest(q = .$family, rank = &amp;quot;family&amp;quot;)) %&amp;gt;% 
+  filter(family == canonicalName) %&amp;gt;% 
+  dplyr::select(family, key)
+gb &amp;lt;- occ_search(taxonKey = families$key, country = &amp;quot;EC&amp;quot;, datasetKey = ebird_key, 
+                 limit = 3000, return = &amp;quot;data&amp;quot;,
+                 fields = c(&amp;quot;family&amp;quot;, &amp;quot;species&amp;quot;, &amp;quot;decimalLatitude&amp;quot;, &amp;quot;decimalLongitude&amp;quot;),
+                 hasCoordinate = TRUE, hasGeospatialIssue = FALSE) %&amp;gt;% 
+  rbind_all %&amp;gt;% 
+  rename(lng = decimalLongitude, lat = decimalLatitude) %&amp;gt;% 
+  as.data.frame
+coordinates(gb) &amp;lt;- ~ lng + lat
+projection(gb) &amp;lt;- projection(study_area)
+gb &amp;lt;- spTransform(gb, projection(ecuador))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now I summarize these sightings over the hexagonal grid to get point density, and plot the data in the form of a heat map.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;fill_missing &amp;lt;- expand.grid(id = row.names(hex_ecu), 
+                            family = bird_families, stringsAsFactors = FALSE)
+point_density &amp;lt;- over(hex_ecu, gb, returnList = TRUE) %&amp;gt;% 
+  plyr::ldply(.fun = function(x) x, .id = &amp;quot;id&amp;quot;) %&amp;gt;%
+  mutate(id = as.character(id)) %&amp;gt;% 
+  count(id, family) %&amp;gt;% 
+  left_join(fill_missing, ., by = c(&amp;quot;id&amp;quot;, &amp;quot;family&amp;quot;)) %&amp;gt;%
+  # log transform
+  mutate(n = ifelse(is.na(n), -1, log10(n))) %&amp;gt;% 
+  spread(family, n, fill = -1) %&amp;gt;% 
+  SpatialPolygonsDataFrame(hex_ecu, .)
+spplot(point_density, bird_families,
+       main = &amp;quot;Ecuador eBird Sightings by Family&amp;quot;,
+       col.regions = c(&amp;quot;grey20&amp;quot;, viridis(255)),
+       colorkey = list(
+         space = &amp;quot;bottom&amp;quot;,
+         at = c(-0.1, seq(0, log10(1200), length.out = 255)),
+         labels = list(
+           at = c(-0.1, log10(c(1, 5, 25, 75, 250, 1200))),
+           labels = c(0, 1, 5, 25, 75, 250, 1200)
+           )
+         ),
+       xlim = bbexpand(bbox(point_density)[1, ], 0.04), 
+       ylim = bbexpand(bbox(point_density)[2, ], 0.04),
+       par.strip.text = list(col = &amp;quot;white&amp;quot;),
+       par.settings = list(
+         strip.background = list(col = &amp;quot;grey40&amp;quot;))
+       )&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/point-density-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;I’ve used &lt;code&gt;spplot()&lt;/code&gt; here, and chosen to use a logarithmic scale, which means a big mess of legend parameters. Unfortunately, the data aren’t all that interesting, though I think the maps are pretty!&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;polygon-coverage&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Polygon coverage&lt;/h3&gt;
+&lt;p&gt;Another common task, is determining the extent to which grid cells are covered by a polygon geometry. This could be in terms of absolute area covered or percent coverage. In the context of systematic reserve design, we may have species ranges as polygons and want to know the amount of each grid cell that is suitable habitat for each species. This can help highlight which cells are of highest conservation value.&lt;/p&gt;
+&lt;p&gt;As a simple toy example, I use the boundary of Pastaza State.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;pastaza &amp;lt;- getData(name = &amp;quot;GADM&amp;quot;, country = &amp;quot;ECU&amp;quot;, level = 1, 
+                   path = tempdir()) %&amp;gt;%
+  subset(NAME_1 == &amp;quot;Pastaza&amp;quot;) %&amp;gt;% 
+  spTransform(projection(hex_ecu))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;And calculate the degree to which it covers the grid cells. To intersect the polygons I use &lt;code&gt;gIntersection(byid = TRUE)&lt;/code&gt; from the &lt;code&gt;rgoes&lt;/code&gt; package. Note that with &lt;code&gt;byid = TRUE&lt;/code&gt;, the intersection is performed at the level of individual features within the geometry. For each resulting intersection polygon the feature ID is composed of the two source polygon IDs separated by a space. &lt;code&gt;gArea(byid = TRUE)&lt;/code&gt;, also from &lt;code&gt;rgeos&lt;/code&gt;, returns the area for each polygon.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# cell areas
+hex_area &amp;lt;- make_grid(ecuador, type = &amp;quot;hexagonal&amp;quot;, cell_area = 2500, clip = TRUE)
+hex_area &amp;lt;- gArea(hex_area, byid = T) %&amp;gt;% 
+  data.frame(id = names(.), area = ., stringsAsFactors = FALSE) %&amp;gt;% 
+  SpatialPolygonsDataFrame(hex_area, .)
+hex_cover &amp;lt;- gIntersection(hex_area, pastaza, byid = TRUE) %&amp;gt;% 
+  gArea(byid = TRUE) %&amp;gt;% 
+  data.frame(id_both = names(.), cover_area = ., stringsAsFactors = FALSE) %&amp;gt;% 
+  separate(id_both, &amp;quot;id&amp;quot;, extra = &amp;quot;drop&amp;quot;) %&amp;gt;% 
+  merge(hex_area, ., by = &amp;quot;id&amp;quot;)
+hex_cover$cover_area[is.na(hex_cover$cover_area)] &amp;lt;- 0
+hex_cover$pct_cover &amp;lt;- 100 * hex_cover$cover_area / hex_cover$area&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Finally, I plot these two cover variables, again using &lt;code&gt;spplot()&lt;/code&gt;.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# area
+p1 &amp;lt;- spplot(hex_cover, &amp;quot;cover_area&amp;quot;, col = &amp;quot;white&amp;quot;, lwd = 0.5,
+       main = expression(km^2),
+       col.regions = plasma(256),
+       par.settings = list(axis.line = list(col =  &amp;#39;transparent&amp;#39;)),
+       colorkey = list(
+         space = &amp;quot;bottom&amp;quot;,
+         at = seq(0, 2500, length.out = 256),
+         axis.line = list(col =  &amp;#39;black&amp;#39;))
+       )
+# percent cover
+p2 &amp;lt;- spplot(hex_cover, &amp;quot;pct_cover&amp;quot;, col = &amp;quot;white&amp;quot;, lwd = 0.5,
+       main = expression(&amp;quot;%&amp;quot;),
+       col.regions = plasma(256),
+       par.settings = list(axis.line = list(col =  &amp;#39;transparent&amp;#39;)),
+       colorkey = list(
+         space = &amp;quot;bottom&amp;quot;,
+         at = seq(0, 100, length.out = 256),
+         axis.line = list(col =  &amp;#39;black&amp;#39;))
+       )
+grid.arrange(p1, p2, ncol = 2, top = &amp;quot;Ecuador: Coverage by Pastaza State&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/cover-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;Again, these data are not very interesting, but the example is illustrative.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;raster-aggregation&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Raster aggregation&lt;/h3&gt;
+&lt;p&gt;One of the most common operation I find myself doing with hexagonal grids is aggregating raster layers over the grid cells. For example, elevation or climate variables in raster format might be averaged over hexagonal grid cells, then used to parameterize a &lt;a href=&#34;https://en.wikipedia.org/wiki/Environmental_niche_modelling&#34;&gt;species distribution model&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;The &lt;code&gt;getData()&lt;/code&gt; function from the &lt;code&gt;raster&lt;/code&gt; package provides access to elevation and climate raster datasets. As an example, I’ll use the SRTM elevation dataset, which has been aggregated to 1km resolution. First, I download, crop, and reproject this dataset.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;srtm &amp;lt;- getData(&amp;#39;alt&amp;#39;, country = &amp;#39;ECU&amp;#39;, path = tempdir()) %&amp;gt;% 
+  projectRaster(t_crop, to = raster(hex_ecu, res=1)) %&amp;gt;% 
+  setNames(&amp;#39;elevation&amp;#39;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;To average this raster dataset over the hexagonal cells, I use the &lt;code&gt;extract()&lt;/code&gt; function from the &lt;code&gt;raster&lt;/code&gt; package. By default this function returns values from all raster cells that intersect with a given input geometry; however, with parameters &lt;code&gt;fun = mean&lt;/code&gt; and &lt;code&gt;sp = TRUE&lt;/code&gt; it will average the raster over each polygon and return a &lt;code&gt;SpatialPolygonsDataFrame&lt;/code&gt; object with this information.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;hex_srtm &amp;lt;- extract(srtm, hex_ecu, fun = mean, na.rm = TRUE, sp = TRUE)
+p1 &amp;lt;- levelplot(srtm, 
+                col.regions = terrain.colors,
+                margin = FALSE, scales = list(draw = FALSE),
+                colorkey = list(
+                  #space = &amp;quot;bottom&amp;quot;,
+                  at = seq(0, 6000, length.out = 256),
+                  labels = list(at = 1000 * 0:6, 
+                                labels = format(1000 * 0:6, big.mark = &amp;quot;,&amp;quot;))
+                )
+      )
+p2 &amp;lt;- spplot(hex_srtm,
+             col.regions = terrain.colors(256),
+             at = seq(0, 4000, length.out = 256),
+             colorkey = list(
+               labels = list(at = seq(0, 4000, 500), 
+                             labels = format(seq(0, 4000, 500), big.mark = &amp;quot;,&amp;quot;))
+             )
+      )
+grid.arrange(p1, p2, ncol = 2, top = &amp;quot;Ecuador SRTM Elevation (m)&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/extract-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;The raster package makes this aggregation task extremely easy, just a single line of code! I’ve also used &lt;code&gt;levelplot()&lt;/code&gt; from &lt;code&gt;rasterVis&lt;/code&gt;, which provides a nice system for mapping raster data.&lt;/p&gt;
+&lt;div class=&#34;footnotes&#34;&gt;
+&lt;p&gt;
+&lt;strong&gt;Footnotes&lt;/strong&gt;
+&lt;/p&gt;
+&lt;p&gt;
+&lt;strong id=&#34;f1&#34;&gt;1&lt;/strong&gt;
+“1-uniform n11” by Tomruen - Own work. Licensed under CC BY-SA 4.0 via Commons - &lt;a href=&#34;https://commons.wikimedia.org/wiki/File:1-uniform_n11.svg&#34; class=&#34;uri&#34;&gt;https://commons.wikimedia.org/wiki/File:1-uniform_n11.svg&lt;/a&gt; &lt;a href=&#34;#a1&#34;&gt;↩︎&lt;/a&gt;
+&lt;/p&gt;
+&lt;p&gt;
+&lt;strong id=&#34;f2&#34;&gt;2&lt;/strong&gt;
+“1-uniform n5” by Tomruen - Own work. Licensed under CC BY-SA 4.0 via Commons - &lt;a href=&#34;https://commons.wikimedia.org/wiki/File:1-uniform_n5.svg&#34; class=&#34;uri&#34;&gt;https://commons.wikimedia.org/wiki/File:1-uniform_n5.svg&lt;/a&gt; &lt;a href=&#34;#a1&#34;&gt;↩︎&lt;/a&gt;
+&lt;/p&gt;
+&lt;p&gt;
+&lt;strong id=&#34;f3&#34;&gt;3&lt;/strong&gt;
+“1-uniform n1” by Tomruen - Own work. Licensed under CC BY-SA 4.0 via Commons - &lt;a href=&#34;https://commons.wikimedia.org/wiki/File:1-uniform_n1.svg&#34; class=&#34;uri&#34;&gt;https://commons.wikimedia.org/wiki/File:1-uniform_n1.svg&lt;/a&gt; &lt;a href=&#34;#a1&#34;&gt;↩︎&lt;/a&gt;
+&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

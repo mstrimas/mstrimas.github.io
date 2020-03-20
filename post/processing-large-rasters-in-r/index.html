@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+<head>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="generator" content="Source Themes Academic 4.8.0">
+
+  
+
+  
+  
+  
+  
+  
+    
+    
+    
+  
+  
+
+  <meta name="author" content="Matt Strimas-Mackey">
+
+  
+  
+  
+    
+  
+  <meta name="description" content="Investigating how raster data are processed in R to improve the efficiency of processing large raster files.">
+
+  
+  <link rel="alternate" hreflang="en-us" href="/post/processing-large-rasters-in-r/">
+
+  
+
+
+  
+  
+  
+  <meta name="theme-color" content="#2962ff">
+  
+
+  
+  
+  
+  <script src="/js/mathjax-config.js"></script>
+  
+
+  
+  
+  
+  
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/academicons/1.8.6/css/academicons.min.css" integrity="sha256-uFVgMKfistnJAfoCUQigIl+JfUaP47GrRKjf6CTPVmw=" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.0-1/css/all.min.css" integrity="sha256-4w9DunooKSr3MFXHXWyFER38WmPdm361bQS/2KUWZbU=" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.css" integrity="sha256-Vzbj7sDDS/woiFS3uNKo8eIuni59rjyNGtXfstRzStA=" crossorigin="anonymous">
+
+    
+    
+    
+      
+    
+    
+      
+      
+        
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/styles/github.min.css" crossorigin="anonymous" title="hl-light">
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/styles/dracula.min.css" crossorigin="anonymous" title="hl-dark" disabled>
+        
+      
+    
+
+    
+
+    
+
+    
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/lazysizes/5.1.2/lazysizes.min.js" integrity="sha256-Md1qLToewPeKjfAHU1zyPwOutccPAm5tahnaw7Osw0A=" crossorigin="anonymous" async></script>
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" integrity="" crossorigin="anonymous" async></script>
+      
+    
+      
+
+      
+      
+
+      
+    
+
+  
+
+  
+  
+  
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700%7CRoboto:300,400,400italic,700%7CRoboto+Mono&display=swap">
+  
+
+  
+  
+  
+  
+  <link rel="stylesheet" href="/css/academic.css">
+
+  
+
+
+
+
+  
+
+
+  
+
+  <link rel="manifest" href="/index.webmanifest">
+  <link rel="icon" type="image/png" href="/images/icon_huc535fd600173eb10835885c2d4404d0e_604543_32x32_fill_lanczos_center_2.png">
+  <link rel="apple-touch-icon" type="image/png" href="/images/icon_huc535fd600173eb10835885c2d4404d0e_604543_192x192_fill_lanczos_center_2.png">
+
+  <link rel="canonical" href="/post/processing-large-rasters-in-r/">
+
+  
+  
+  
+  
+  
+    
+    
+  
+  
+  <meta property="twitter:card" content="summary">
+  
+  <meta property="twitter:site" content="@StrimasMackey">
+  <meta property="twitter:creator" content="@StrimasMackey">
+  
+  <meta property="og:site_name" content="">
+  <meta property="og:url" content="/post/processing-large-rasters-in-r/">
+  <meta property="og:title" content="Processing Large Rasters in R | ">
+  <meta property="og:description" content="Investigating how raster data are processed in R to improve the efficiency of processing large raster files."><meta property="og:image" content="img/map[gravatar:%!s(bool=false) shape:circle]">
+  <meta property="twitter:image" content="img/map[gravatar:%!s(bool=false) shape:circle]"><meta property="og:locale" content="en-us">
+  
+    
+      <meta property="article:published_time" content="2020-03-20T00:00:00&#43;00:00">
+    
+    <meta property="article:modified_time" content="2020-03-20T15:57:29-04:00">
+  
+
+  
+
+
+    
+
+
+
+
+
+
+  
+
+
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "/post/processing-large-rasters-in-r/"
+  },
+  "headline": "Processing Large Rasters in R",
+  
+  "datePublished": "2020-03-20T00:00:00Z",
+  "dateModified": "2020-03-20T15:57:29-04:00",
+  
+  "author": {
+    "@type": "Person",
+    "name": "Matt Strimas-Mackey"
+  },
+  
+  "publisher": {
+    "@type": "Organization",
+    "name": "",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "/images/icon_huc535fd600173eb10835885c2d4404d0e_604543_192x192_fill_lanczos_center_2.png"
+    }
+  },
+  "description": "Investigating how raster data are processed in R to improve the efficiency of processing large raster files."
+}
+</script>
+
+  
+
+  
+
+
+  
+
+
+  
+
+
+
+
+
+  <title>Processing Large Rasters in R | </title>
+
+</head>
+
+<body id="top" data-spy="scroll" data-offset="70" data-target="#TableOfContents" >
+
+  <aside class="search-results" id="search">
+  <div class="container">
+    <section class="search-header">
+
+      <div class="row no-gutters justify-content-between mb-3">
+        <div class="col-6">
+          <h1>Search</h1>
+        </div>
+        <div class="col-6 col-search-close">
+          <a class="js-search" href="#"><i class="fas fa-times-circle text-muted" aria-hidden="true"></i></a>
+        </div>
+      </div>
+
+      <div id="search-box">
+        
+        <input name="q" id="search-query" placeholder="Search..." autocapitalize="off"
+        autocomplete="off" autocorrect="off" spellcheck="false" type="search">
+        
+      </div>
+
+    </section>
+    <section class="section-search-results">
+
+      <div id="search-hits">
+        
+      </div>
+
+    </section>
+  </div>
+</aside>
+
+
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-expand-lg navbar-light compensate-for-scrollbar" id="navbar-main">
+  <div class="container">
+
+    
+    <div class="d-none d-lg-inline-flex">
+      <a class="navbar-brand" href="/"></a>
+    </div>
+    
+
+    
+    <button type="button" class="navbar-toggler" data-toggle="collapse"
+            data-target="#navbar-content" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
+    <span><i class="fas fa-bars"></i></span>
+    </button>
+    
+
+    
+    <div class="navbar-brand-mobile-wrapper d-inline-flex d-lg-none">
+      <a class="navbar-brand" href="/"></a>
+    </div>
+    
+
+    
+    
+    <div class="navbar-collapse main-menu-item collapse justify-content-start" id="navbar-content">
+
+      
+      <ul class="navbar-nav d-md-inline-flex">
+        
+
+        
+
+        
+        
+        
+          
+        
+
+        
+        
+        
+        
+        
+        
+          
+          
+          
+            
+          
+          
+        
+
+        <li class="nav-item">
+          <a class="nav-link " href="/#about"><span>About</span></a>
+        </li>
+
+        
+        
+
+        
+
+        
+        
+        
+          
+        
+
+        
+        
+        
+        
+        
+        
+          
+          
+          
+            
+          
+          
+        
+
+        <li class="nav-item">
+          <a class="nav-link " href="/#posts"><span>Posts</span></a>
+        </li>
+
+        
+        
+
+        
+
+        
+        
+        
+          
+        
+
+        
+        
+        
+        
+        
+        
+          
+          
+          
+            
+          
+          
+        
+
+        <li class="nav-item">
+          <a class="nav-link " href="/#projects"><span>Projects</span></a>
+        </li>
+
+        
+        
+
+      
+
+        
+      </ul>
+    </div>
+
+    <ul class="nav-icons navbar-nav flex-row ml-auto d-flex pl-md-2">
+      
+      <li class="nav-item">
+        <a class="nav-link js-search" href="#"><i class="fas fa-search" aria-hidden="true"></i></a>
+      </li>
+      
+
+      
+
+      
+
+    </ul>
+
+  </div>
+</nav>
+
+
+  <article class="article">
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+  
+  
+<div class="article-container pt-3">
+  <h1>Processing Large Rasters in R</h1>
+
+  
+
+  
+    
+
+
+<div class="article-metadata">
+
+  
+  
+
+  
+  <span class="article-date">
+    
+    
+      
+          Last updated on
+      
+    
+    Mar 20, 2020
+  </span>
+  
+
+  
+
+  
+  <span class="middot-divider"></span>
+  <span class="article-reading-time">
+    11 min read
+  </span>
+  
+
+  
+  
+  
+
+  
+  
+
+</div>
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+</div>
+
+
+
+  <div class="article-container">
+
+    <div class="article-style">
+      
+
+
+<p>We work with a lot of huge raster datasets on the <a href="https://ebird.org/science/">eBird Status &amp; Trends</a> project, and processing them is becoming a real bottleneck in our R workflow. For example, we make weekly estimates of bird abundance at 3 km resolution across the entire Western Hemisphere, which results in raster stacks with billions of cells! To produce seasonal abundance maps, we need to average the weekly layers across all weeks within each season using the <code>raster</code> function <code>calc()</code>, and it takes forever with these huge files! In this post, I’m going to try to understand how <code>raster</code> processes data and explore how this can be tweaked to improve computational efficiency.</p>
+<p>In general, R holds objects in memory, which results in a limit to the size of objects that can be processed. This poses a problem for processing raster datasets, which can be much larger than the available system memory. The <code>raster</code> package addresses this by only storing references to raster files within its <code>Raster*</code> objects. Depending on the memory requirements for a given raster calculation, and the memory available, the package functions will either read the whole dataset into R for processing or process it in smaller chunks.</p>
+<p>Let’s start by importing an example dataset generated using the <code>simulate_species()</code> function from the <code>prioritizr</code> package. The raster has dimensions 1000x1000 and 9 layers.</p>
+<pre class="r"><code>library(raster)
+library(rasterVis)
+library(viridis)
+library(profmem)
+library(tidyverse)
+
+r &lt;- stack(&quot;data/large-raster.tif&quot;)
+print(r)
+#&gt; class      : RasterStack 
+#&gt; dimensions : 1000, 1000, 1e+06, 9  (nrow, ncol, ncell, nlayers)
+#&gt; resolution : 0.001, 0.001  (x, y)
+#&gt; extent     : 0, 1, 0, 1  (xmin, xmax, ymin, ymax)
+#&gt; crs        : +proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0 
+#&gt; names      : large.raster.1, large.raster.2, large.raster.3, large.raster.4, large.raster.5, large.raster.6, large.raster.7, large.raster.8, large.raster.9 
+#&gt; min values :              0,              0,              0,              0,              0,              0,              0,              0,              0 
+#&gt; max values :          0.885,          0.860,          0.583,          0.744,          0.769,          0.428,          0.289,          0.579,          0.499
+levelplot(r,
+          col.regions = viridis,
+          xlab = NULL, ylab = NULL,
+          scales = list(draw = FALSE),
+          names.attr = paste(&quot;Band&quot;, seq_len(nlayers(r))),
+          maxpixels = 1e6)</code></pre>
+<p><img src="/post/2020-03-20-processing-large-rasters-in-r/index_files/figure-html/read-1.png" width="\textwidth" style="display: block; margin: auto;" /></p>
+<p>We can calculate the total number of values this raster can store and the associated memory requirements assuming 8 bytes per cell value. To calculate the actual memory used, we can override the default <code>raster</code> behavior and read the contents of the file into R using <code>readAll()</code>.</p>
+<pre class="r"><code>n_values &lt;- ncell(r) * nlayers(r)
+# memory in mb
+mem_est &lt;- 8 * n_values / 2^20
+mem_act &lt;- as.integer(object.size(readAll(r))) / 2^20
+#&gt; [1] &quot;# values in raster:  9,000,000&quot;
+#&gt; [1] &quot;Estimated size (MB):  68.7&quot;
+#&gt; [1] &quot;Memory usage (MB):  68.8&quot;
+#&gt;            used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
+#&gt; Ncells  1925151  103   3.67e+06  196         NA 2.49e+06  133
+#&gt; Vcells 45371747  346   1.26e+08  963     102400 2.28e+08 1741</code></pre>
+<p>So we were fairly close in our estimates, looks like it takes a little under 70 Mb of memory to hold this object in the R session.</p>
+<div id="processing-rasters" class="section level2">
+<h2>Processing rasters</h2>
+<p>Let’s apply the <code>calc()</code> function to this dataset to calculate the cell-wise mean across layers.</p>
+<pre class="r"><code>r_mean &lt;- calc(r, mean, na.rm = TRUE)</code></pre>
+<p>This is essentially to equivalent of <code>apply()</code> for a array with 3 dimensions, e.g.:</p>
+<pre class="r"><code>a &lt;- array(runif(27), dim = c(3, 3, 3))
+apply(a, 1:2, mean)
+#&gt;       [,1]  [,2]  [,3]
+#&gt; [1,] 0.236 0.602 0.570
+#&gt; [2,] 0.452 0.412 0.588
+#&gt; [3,] 0.561 0.598 0.545</code></pre>
+<p>But what <code>raster</code> is doing in <code>calc()</code> is a little different and depends on the memory requirements of the calculation. We can use the function <code>canProccessInMemory()</code> to test whether a <code>Raster*</code> object can be loaded into memory for processing or not. We’ll use <code>verbose = TRUE</code> to get some additional information.</p>
+<pre class="r"><code>canProcessInMemory(r, verbose = TRUE)
+#&gt; memory stats in GB
+#&gt; mem available: 2.22
+#&gt;         60%  : 1.33
+#&gt; mem needed   : 0.27
+#&gt; max allowed  : 4.66  (if available)
+#&gt; [1] TRUE</code></pre>
+<p>This tells me how much free memory I have available on my computer and how much memory is required for this <code>Raster*</code> object. We don’t want <code>raster</code> eating up all our memory, so <code>raster</code> has two user adjustable options to specify the maximum amount of memory it will use in bytes or relative to the available memory. These values default to 5 billion bytes (4.66 GB) and 60%, respectively, but can be adjusted with <code>rasterOptions()</code>.</p>
+<p><code>raster</code> functions call <code>canProccessInMemory()</code> when they’re invoked, then use a different approach for processing depending on the results:</p>
+<ul>
+<li><code>canProcessInMemory(r) == TRUE</code>: read the entire object into the R session, then process all at once similar to <code>apply()</code>.</li>
+<li><code>canProcessInMemory(r) == FALSE</code>: process the raster in blocks of rows, each of which is small enough to store in memory. This approach requires that the output raster object is saved in a file. Blocks of rows are read from the input files, processed in R, then written to the output file, and this is done iteratively for all the blocks until the whole raster is processed.</li>
+</ul>
+<p>One wrinkle to this is that each <code>raster</code> function has different memory requirements. This is dealt with using the <code>n</code> argument to <code>canProccessInMemory()</code>, which specifies the number of copies of the <code>Raster*</code> object’s cell values that the function needs to have in memory. Specifically, the estimated memory requirement in bytes is <code>8 * n * ncell(r) * nlayers(r)</code>. Let’s see how different values of <code>n</code> affect whether a raster can be processed in memory:</p>
+<pre class="r"><code>tibble(n = c(1, 10, 20, 30, 40, 50, 60)) %&gt;% 
+  mutate(process_in_mem = map_lgl(n, canProcessInMemory, x = r))
+#&gt; # A tibble: 7 x 2
+#&gt;       n process_in_mem
+#&gt;   &lt;dbl&gt; &lt;lgl&gt;         
+#&gt; 1     1 TRUE          
+#&gt; 2    10 TRUE          
+#&gt; 3    20 FALSE         
+#&gt; 4    30 FALSE         
+#&gt; 5    40 FALSE         
+#&gt; 6    50 FALSE         
+#&gt; 7    60 FALSE</code></pre>
+<p>So, even though I called this a “large” raster, R can still handle processing it in memory until we get to requiring a fairly large number of copies, at which time, the raster will switch to being processed in blocks. For reason I don’t fully understand, the <a href="https://github.com/rspatial/raster/blob/master/R/calc.R">source code of the <code>calc()</code> function</a> suggests that it’s using <code>n = 2 * (nlayers(r) + 1)</code>, which is 20, so <code>calc()</code> is processing this raster in memory on my system. Indeed, we can confirm that the result of this calculation are stored in a memory with <code>inMemory()</code>.</p>
+<pre class="r"><code>inMemory(r_mean)
+#&gt; [1] TRUE</code></pre>
+<p>What’s the point of going to all this trouble? If a raster can be processed in blocks to reduce memory usage, why not do it all the time? The issue is that processing in memory is much faster than processing in blocks and having to write to a file. We can see this by forcing <code>calc()</code> to process on disk in blocks by setting <code>rasterOptions(todisk = TRUE)</code>.</p>
+<pre class="r"><code># in memory
+rasterOptions(todisk = FALSE)
+t_inmem &lt;- system.time(calc(r, mean, na.rm = TRUE))
+print(t_inmem)
+#&gt;    user  system elapsed 
+#&gt;   4.664   0.159   4.866
+
+# on disk
+rasterOptions(todisk = TRUE)
+t_ondisk &lt;- system.time(calc(r, mean, na.rm = TRUE))
+print(t_ondisk)
+#&gt;    user  system elapsed 
+#&gt;   4.717   0.408   5.152
+rasterOptions(todisk = FALSE)</code></pre>
+<p>So, we see a 5.9% increase in efficiency by processing in memory. The <code>profmem</code> package can gives us some information on the different amounts of memory used for the two approaches. Specifically, we can estimate the maximum amount of memory used at any one time by <code>calc()</code>.</p>
+<pre class="r"><code># in memory
+rasterOptions(todisk = FALSE)
+m_inmem &lt;- max(profmem(calc(r, mean, na.rm = TRUE))$bytes, na.rm = TRUE)
+
+# on disk
+rasterOptions(todisk = TRUE)
+m_ondisk &lt;- max(profmem(calc(r, mean, na.rm = TRUE))$bytes, na.rm = TRUE)
+rasterOptions(todisk = FALSE)
+#&gt; [1] &quot;In memory (MB):  69&quot;
+#&gt; [1] &quot;On disk (MB):  17&quot;</code></pre>
+<p>So, it’s clear that different ways of processing <code>Raster*</code> objects affects both the processing time and resource use.</p>
+</div>
+<div id="raster-options" class="section level2">
+<h2><code>raster</code> options</h2>
+<p>The <code>raster</code> package has a few options that can adjusted to tweak how functions process data. Let’s take a look at the default values:</p>
+<pre class="r"><code>rasterOptions()
+#&gt; format        : raster 
+#&gt; datatype      : FLT4S 
+#&gt; overwrite     : FALSE 
+#&gt; progress      : none 
+#&gt; timer         : FALSE 
+#&gt; chunksize     : 1e+08 
+#&gt; maxmemory     : 5e+09 
+#&gt; memfrac       : 0.6 
+#&gt; tmpdir        : /var/folders/mg/qh40qmqd7376xn8qxd6hm5lwjyy0h2/T//RtmpSEvRmk/raster// 
+#&gt; tmptime       : 168 
+#&gt; setfileext    : TRUE 
+#&gt; tolerance     : 0.1 
+#&gt; standardnames : TRUE 
+#&gt; warn depracat.: TRUE 
+#&gt; header        : none</code></pre>
+<p>The options relevant to memory and processing are:</p>
+<ul>
+<li><code>maxmemory</code>: the maximum amount of memory (in bytes) to use for a given operation, defaults to 5 billion bytes (4.66 GB).</li>
+<li><code>memfrac</code>: the maximum proportion of the available memory to use for a given operation, defaults to 60%.</li>
+<li><code>chunksize</code>: the maximum size (in bytes) of individual chunks of data to read/write when a raster is being processed in blocks, defaults to 100 million bytes (0.1 GB).</li>
+<li><code>todisk</code>: used to force processing on disk in blocks.</li>
+</ul>
+<p>For example, we can adjust <code>chunksize</code> to force <code>calc()</code> to process our raster stack in smaller pieces. Note that <code>raster</code> actually ignores user specified values of <code>chunksize</code> if they’re below <span class="math inline">\(10^5\)</span>, so I’ll have to do something sketchy and overwrite an internal <code>raster</code> function to allow this.</p>
+<pre class="r"><code># hack raster internal function
+cs_orig &lt;- raster:::.chunk
+cs_hack &lt;- function(x) getOption(&quot;rasterChunkSize&quot;)
+assignInNamespace(&quot;.chunk&quot;, cs_hack, ns = &quot;raster&quot;)
+
+# use 1 kb chunks
+rasterOptions(chunksize = 1000, todisk = TRUE)
+t_smallchunks &lt;- system.time(calc(r, mean, na.rm = TRUE))
+
+# undo the hack
+assignInNamespace(&quot;.chunk&quot;, cs_orig, ns = &quot;raster&quot;)
+rasterOptions(default = TRUE)</code></pre>
+<p>Processing in smaller chunks resulted in a 67.3% decrease in efficiency compared to the default chunk size. All this suggests to me that, when dealing with large rasters, it makes sense to increase <code>maxmemory</code> as much as feasible given the memory available on your system; the default value of ~ 1 GB is quite small for a modern computer. Then, once you get to a point where the raster has to be processed in blocks, increase <code>chunksize</code> to take advantage of as much memory as you have available.</p>
+</div>
+<div id="processing-in-blocks" class="section level2">
+<h2>Processing in blocks</h2>
+<p>I want to take a quick detour to understand exactly how <code>raster</code> processes data in blocks. Looking at the <a href="https://github.com/rspatial/raster/blob/master/R/calc.R">source code of the <code>calc()</code> function</a> gives a template for how this is done. A few <code>raster</code> functions help with this:</p>
+<ul>
+<li><code>blockSize()</code> suggests a sensible way to break up a <code>Raster*</code> object for processing in blocks. The <code>raster</code> objects always uses a set of entire rows as blocks, so this function gives the starting row numbers of each block.</li>
+<li><code>readStart()</code> opens a file on disk for reading.</li>
+<li><code>getValues()</code> reads a block of data, defined by the starting row and number of rows.</li>
+<li><code>readStop()</code> closes the input file.</li>
+<li><code>writeStart()</code> opens a file on disk for writing the results of our calculations to.</li>
+<li><code>writeValues()</code> writes a block of data to a file, starting at a given row.</li>
+<li><code>writeStop()</code> closes the output file.</li>
+</ul>
+<p>Let’s set things up to replicate what <code>calc()</code> does. First we need to determine how to dive the input raster up into blocks for processing:</p>
+<pre class="r"><code># file paths
+f_in &lt;- &quot;data/large-raster.tif&quot;
+f_out &lt;- tempfile(fileext = &quot;.tif&quot;)
+
+# input and output rasters
+r_in &lt;- stack(f_in)
+r_out &lt;- raster(r_in)
+
+# blocks
+b &lt;- blockSize(r_in)
+print(b)
+#&gt; $row
+#&gt; [1]   1 251 501 751
+#&gt; 
+#&gt; $nrows
+#&gt; [1] 250 250 250 250
+#&gt; 
+#&gt; $n
+#&gt; [1] 4</code></pre>
+<p>So, <code>blockSize()</code> is suggesting we break the file up into 4 blocks (<code>b$n</code>) of 250 (<code>b$nrows</code>) each, and <code>b$rows</code> gives us the starting row value for each block. Now we open the input and output files, process the blocks iteratively, reading and writing as necessary, then close the files.</p>
+<pre class="r"><code># open files
+r_in &lt;- readStart(r_in)
+r_out &lt;- writeStart(r_out, filename = f_out)
+
+# loop over blocks
+for (i in seq_along(b$row)) {
+  # read values for block
+  # format is a matrix with rows the cells values and columns the layers
+  v &lt;- getValues(r_in, row = b$row[i], nrows = b$nrows[i])
+  
+  # mean cell value across layers
+  v &lt;- rowMeans(v, na.rm = TRUE)
+  
+  # write to output file
+  r_out &lt;- writeValues(r_out, v, b$row[i])
+}
+
+# close files
+r_out &lt;- writeStop(r_out)
+r_in &lt;- readStop(r_in)</code></pre>
+<p>That’s it, not particularly complicated! Let’s make sure it worked by comparing to the results from <code>calc()</code>.</p>
+<pre class="r"><code>cellStats(abs(r_mean- r_out), max, na.rm = TRUE)
+#&gt; [1] 2.98e-08</code></pre>
+<p>Everything looks good, the results are identical! Hopefully, this minimal example is a good template if you want to build your own raster processing functions.</p>
+</div>
+<div id="parallel-processing" class="section level2">
+<h2>Parallel processing</h2>
+<p>Breaking a raster up into blocks and processing each independently suggests another approach to more efficient raster processing: parallelization. Each block could be processed by a different core and node and the results will be collected in the output file. Fortunately, <code>raster</code> has some nice tools for parallel raster processing. The function <code>clusterR()</code> essentially takes an existing <code>raster</code> function such as <code>calc()</code> and runs it in parallel. Prior to using it, we need to Here’s how it works:</p>
+<pre class="r"><code># start a cluster with four cores
+beginCluster(n = 4)
+t_parallel &lt;- system.time({
+  parallel_mean &lt;- clusterR(r, fun = calc,
+                            args = list(fun = mean, na.rm = TRUE))
+})
+endCluster()
+
+# time for parallel calc
+t_parallel[3]
+#&gt; elapsed 
+#&gt;    5.12
+# time for sequential calc
+t_ondisk[3]
+#&gt; elapsed 
+#&gt;    5.15</code></pre>
+<p>Hmmm, there’s something odd going on here, it’s taking longer for the parallel version than the sequential version. I suspect I’ve messed something up in the parallel implementation. Let me know if you know what I’ve done wrong, perhaps it’s a topic for another post.</p>
+</div>
+
+    </div>
+
+    
+
+
+
+<div class="article-tags">
+  
+  <a class="badge badge-light" href="/tags/r/">R</a>
+  
+  <a class="badge badge-light" href="/tags/spatial/">Spatial</a>
+  
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+  
+  
+  
+    
+  
+  
+  
+  <div class="media author-card content-widget-hr">
+    
+      
+      <img class="avatar mr-3 avatar-circle" src="/authors/admin/avatar_hufc2d5cedd4fd5be6e51657bf9e244edd_1348769_270x270_fill_lanczos_center_2.png" alt="Matt Strimas-Mackey">
+    
+
+    <div class="media-body">
+      <h5 class="card-title"><a href="/">Matt Strimas-Mackey</a></h5>
+      <h6 class="card-subtitle">Data Scientist</h6>
+      <p class="card-text">I am a data scientist at the Cornell Lab of Ornithology using data from the citizen science project eBird to inform bird research and conservation.</p>
+      <ul class="network-icon" aria-hidden="true">
+  
+    
+    
+    
+      
+    
+    
+    
+    
+    
+      
+    
+    <li>
+      <a href="https://github.com/mstrimas" target="_blank" rel="noopener">
+        <i class="fab fa-github"></i>
+      </a>
+    </li>
+  
+    
+    
+    
+    
+    
+    
+    
+      
+    
+    <li>
+      <a href="https://scholar.google.com/citations?user=TFGvNhAAAAAJ&amp;hl=en" target="_blank" rel="noopener">
+        <i class="ai ai-google-scholar"></i>
+      </a>
+    </li>
+  
+    
+    
+    
+      
+    
+    
+    
+    
+    
+      
+    
+    <li>
+      <a href="https://twitter.com/StrimasMackey" target="_blank" rel="noopener">
+        <i class="fab fa-twitter"></i>
+      </a>
+    </li>
+  
+</ul>
+
+    </div>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <div class="article-widget content-widget-hr">
+    <h3>Related</h3>
+    <ul>
+      
+      <li><a href="/post/hexagonal-grids/">Fishnets and Honeycomb: Square vs. Hexagonal Spatial Grids</a></li>
+      
+      <li><a href="/project/ebp/">eBird Best Practices</a></li>
+      
+      <li><a href="/project/rebirdst/">ebirdst</a></li>
+      
+      <li><a href="/project/auk/">auk</a></li>
+      
+      <li><a href="/project/prioritizr/">prioritizr</a></li>
+      
+    </ul>
+  </div>
+  
+
+
+
+  </div>
+</article>
+
+      
+
+    
+    
+    
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.imagesloaded/4.1.4/imagesloaded.pkgd.min.js" integrity="sha256-lqvxZrPLtfffUl2G/e7szqSvPBILGbwmsGE1MKlOi0Q=" crossorigin="anonymous"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.isotope/3.0.6/isotope.pkgd.min.js" integrity="sha256-CBrpuqrMhXwcLLUd5tvQ4euBHCdh7wGlDfNz8vbu/iI=" crossorigin="anonymous"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.js" integrity="sha256-yt2kYMy0w8AbtF89WXb2P1rfjcP/HTHLT7097U8Y5b8=" crossorigin="anonymous"></script>
+
+      
+
+      
+        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/highlight.min.js" integrity="sha256-eOgo0OtLL4cdq7RdwRUiGKLX9XsIJ7nGhWEKbohmVAQ=" crossorigin="anonymous"></script>
+        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/languages/r.min.js"></script>
+        
+      
+
+    
+
+    
+    
+
+    
+    
+    <script>const code_highlighting = true;</script>
+    
+
+    
+    
+    <script>const isSiteThemeDark = false;</script>
+    
+
+    
+    
+    
+    
+    
+    
+    <script>
+      const search_config = {"indexURI":"/index.json","minLength":1,"threshold":0.3};
+      const i18n = {"no_results":"No results found","placeholder":"Search...","results":"results found"};
+      const content_type = {
+        'post': "Posts",
+        'project': "Projects",
+        'publication' : "Publications",
+        'talk' : "Talks"
+        };
+    </script>
+    
+
+    
+    
+
+    
+    
+    <script id="search-hit-fuse-template" type="text/x-template">
+      <div class="search-hit" id="summary-{{key}}">
+      <div class="search-hit-content">
+        <div class="search-hit-name">
+          <a href="{{relpermalink}}">{{title}}</a>
+          <div class="article-metadata search-hit-type">{{type}}</div>
+          <p class="search-hit-description">{{snippet}}</p>
+        </div>
+      </div>
+      </div>
+    </script>
+    
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/3.2.1/fuse.min.js" integrity="sha256-VzgmKYmhsGNNN4Ph1kMW+BjoYJM2jV5i4IlFoeZA9XI=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/jquery.mark.min.js" integrity="sha256-4HLtjeVgH0eIB3aZ9mLYF6E8oU5chNdjU6p6rrXpl9U=" crossorigin="anonymous"></script>
+    
+
+    
+    
+
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+      
+    
+    
+    
+    
+    <script src="/js/academic.min.37431be2d92d7fb0160054761ab79602.js"></script>
+
+    
+
+
+
+
+
+
+  
+  
+  <div class="container">
+    <footer class="site-footer">
+  
+
+  <p class="powered-by">
+    © Matt Strimas-Mackey 2020 &middot; 
+
+    Powered by the
+    <a href="https://sourcethemes.com/academic/" target="_blank" rel="noopener">Academic theme</a> for
+    <a href="https://gohugo.io" target="_blank" rel="noopener">Hugo</a>.
+
+    
+    <span class="float-right" aria-hidden="true">
+      <a href="#" class="back-to-top">
+        <span class="button_icon">
+          <i class="fas fa-chevron-up fa-2x"></i>
+        </span>
+      </a>
+    </span>
+    
+  </p>
+</footer>
+
+  </div>
+  
+
+  
+<div id="modal" class="modal fade" role="dialog">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cite</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <pre><code class="tex hljs"></code></pre>
+      </div>
+      <div class="modal-footer">
+        <a class="btn btn-outline-primary my-1 js-copy-cite" href="#" target="_blank">
+          <i class="fas fa-copy"></i> Copy
+        </a>
+        <a class="btn btn-outline-primary my-1 js-download-cite" href="#" target="_blank">
+          <i class="fas fa-download"></i> Download
+        </a>
+        <div id="modal-error"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

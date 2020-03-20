@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Ecology | </title>
+    <link>/tags/ecology/</link>
+      <atom:link href="/tags/ecology/index.xml" rel="self" type="application/rss+xml" />
+    <description>Ecology</description>
+    <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Fri, 13 Oct 2017 00:00:00 +0000</lastBuildDate>
+    <image>
+      <url>img/map[gravatar:%!s(bool=false) shape:circle]</url>
+      <title>Ecology</title>
+      <link>/tags/ecology/</link>
+    </image>
+    
+    <item>
+      <title>Lotka-Volterra predator prey model</title>
+      <link>/post/lotka-volterra/</link>
+      <pubDate>Fri, 13 Oct 2017 00:00:00 +0000</pubDate>
+      <guid>/post/lotka-volterra/</guid>
+      <description>
+
+
+&lt;p&gt;In this post, I’ll explore using R to analyze dynamical systems. Using the Lotka-Volterra predator prey model as a simple case-study, I use the R packages &lt;code&gt;deSolve&lt;/code&gt; to solve a system of differential equations and &lt;code&gt;FME&lt;/code&gt; to perform a sensitivity analysis.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(tidyverse)
+library(deSolve)
+library(FME)&lt;/code&gt;&lt;/pre&gt;
+&lt;div id=&#34;lotka-volterra-model&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Lotka-Volterra model&lt;/h2&gt;
+&lt;p&gt;The Lotka-Volterra model describes the dynamics of a two-species system in which one is a predator and the other is its prey. The equations governing the dynamics of the prey (with density &lt;span class=&#34;math inline&#34;&gt;\(x\)&lt;/span&gt; and predator (with density &lt;span class=&#34;math inline&#34;&gt;\(y\)&lt;/span&gt;) are:&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;math display&#34;&gt;\[
+\begin{aligned}
+  \frac{dx}{dt} &amp;amp; = \alpha x - \beta xy \\
+  \frac{dy}{dt} &amp;amp; = \delta \beta xy - \gamma y 
+\end{aligned}
+\]&lt;/span&gt;&lt;/p&gt;
+&lt;p&gt;where &lt;span class=&#34;math inline&#34;&gt;\(\alpha\)&lt;/span&gt; is the (exponential) growth rate of the prey in the absence of predation, &lt;span class=&#34;math inline&#34;&gt;\(\beta\)&lt;/span&gt; is the predation rate or predator search efficiency, &lt;span class=&#34;math inline&#34;&gt;\(\delta\)&lt;/span&gt; describes the predator food conversion efficiency, and &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; is the predator mortality.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;solving-the-ode&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Solving the ODE&lt;/h2&gt;
+&lt;p&gt;Given a set of initial conditions and parameter estimates, &lt;code&gt;deSolve::ode()&lt;/code&gt; can be used to evolve a dynamical system described by a set of ODEs. I start by defining parameters, as a named list, and the initial state, as a vector. For the initial state, it is the order that matters not the names.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# parameters
+pars &amp;lt;- c(alpha = 1, beta = 0.2, delta = 0.5, gamma = 0.2)
+# initial state 
+init &amp;lt;- c(x = 1, y = 2)
+# times
+times &amp;lt;- seq(0, 100, by = 1)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Next, I need to define a function that computes the derivatives in the ODE system at a given point in time.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;deriv &amp;lt;- function(t, state, pars) {
+  with(as.list(c(state, pars)), {
+    d_x &amp;lt;- alpha * x - beta * x * y
+    d_y &amp;lt;- delta * beta * x * y - gamma * y
+    return(list(c(x = d_x, y = d_y)))
+  })
+}
+lv_results &amp;lt;- ode(init, times, deriv, pars)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The vignette for &lt;code&gt;FME&lt;/code&gt; suggets rolling all this into a function as follows. This function will become the input for the &lt;code&gt;FME&lt;/code&gt; sensitivity analysis.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_model &amp;lt;- function(pars, times = seq(0, 50, by = 1)) {
+  # initial state 
+  state &amp;lt;- c(x = 1, y = 2)
+  # derivative
+  deriv &amp;lt;- function(t, state, pars) {
+    with(as.list(c(state, pars)), {
+      d_x &amp;lt;- alpha * x - beta * x * y
+      d_y &amp;lt;- delta * beta * x * y - gamma * y
+      return(list(c(x = d_x, y = d_y)))
+    })
+  }
+  # solve
+  ode(y = state, times = times, func = deriv, parms = pars)
+}
+lv_results &amp;lt;- lv_model(pars = pars, times = seq(0, 50, by = 0.25))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The ouput of &lt;code&gt;ode()&lt;/code&gt; is a matrix with one column for each state variable. I convert this to a data frame and plot the evolution of the system over time.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_results %&amp;gt;% 
+  data.frame() %&amp;gt;% 
+  gather(var, pop, -time) %&amp;gt;% 
+  mutate(var = if_else(var == &amp;quot;x&amp;quot;, &amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;)) %&amp;gt;% 
+  ggplot(aes(x = time, y = pop)) +
+    geom_line(aes(color = var)) +
+    scale_color_brewer(NULL, palette = &amp;quot;Set1&amp;quot;) +
+    labs(title = &amp;quot;Lotka-Volterra predator prey model&amp;quot;,
+         subtitle = paste(names(pars), pars, sep = &amp;quot; = &amp;quot;, collapse = &amp;quot;; &amp;quot;),
+         x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/time-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;This choice of paramters leads to periodic dynamics in which the prey population initially increases, leading to an abundance of food for the predators. The predators increase in response (lagging the prey population), eventually overwhelming the prey population, which crashes. This in turn causes the predators to crash, and the cycle repeats. The period of these dynamics is about 15 seconds, with the predators lagging the prey by about a second.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;sensitivity-analysis&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Sensitivity analysis&lt;/h2&gt;
+&lt;p&gt;A sensitivity analysis examines how changes in the parameters underlying a model affect the behaviour of the system. It can help us understand the impact of uncertainty in parameter estimates. The &lt;code&gt;FME&lt;/code&gt; vignette covers two types of sensitivity analyses: global and local.&lt;/p&gt;
+&lt;div id=&#34;global-sensitivity&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Global sensitivity&lt;/h3&gt;
+&lt;p&gt;According to the &lt;code&gt;FME&lt;/code&gt; vingette, in a global sensitivity analysis certain parameters (the sensitivity parameters) are varied over a large range, and the effect on model output variables (the sensitivity variables) is measured. To accomplish this, a distribution is defined for each sensitivity parameter and the model is run multiple times, each time drawing values for the sensistivity parameters from their distribution. The sensitivity variables are recorded for each iteration over a range of times. The function &lt;code&gt;sensRange()&lt;/code&gt; carries out global sensitivity analyses.&lt;/p&gt;
+&lt;p&gt;I’ll look at the sensitivity of the populations to the growth rate (&lt;span class=&#34;math inline&#34;&gt;\(\alpha\)&lt;/span&gt;) and the predation rate (&lt;span class=&#34;math inline&#34;&gt;\(\beta\)&lt;/span&gt;). Defining the sensitivity parameter distributions requires providing a data frame in which the first column is the minimum value, the second column the maximum, and the row names are the parameter names.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;par_ranges &amp;lt;- data.frame(min = c(0.75, 0.15),
+                         max = c(1.25, 0.25),
+                         row.names = c(&amp;quot;alpha&amp;quot;, &amp;quot;beta&amp;quot;))
+par_ranges
+#&amp;gt;        min  max
+#&amp;gt; alpha 0.75 1.25
+#&amp;gt; beta  0.15 0.25&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now I use &lt;code&gt;sensRange()&lt;/code&gt; to solve the models over the range of parameters. The argument &lt;code&gt;dist = &#34;grid&#34;&lt;/code&gt; sets the sensitivity parameter distribution to a regular grid of values, &lt;code&gt;sensvar&lt;/code&gt; defines which variables are the sensitivity variables (i.e. the ones whose time series will be returned in the output), &lt;code&gt;num&lt;/code&gt; is the number of iterations and therefore the number of different sensistivity parameter values (note that if there are &lt;span class=&#34;math inline&#34;&gt;\(k\)&lt;/span&gt; sensitivity parameters, &lt;code&gt;num&lt;/code&gt; must have an integer &lt;span class=&#34;math inline&#34;&gt;\(k\)&lt;/span&gt;th root), and times is the time series over which to evaluate the model.&lt;/p&gt;
+&lt;p&gt;The output of this function is a data frame with rows corresponding to the different sensitivity parameter values and columns corresponding to the combination of time steps and sensitivity variables. So, for &lt;code&gt;n&lt;/code&gt; time steps, there are &lt;code&gt;n&lt;/code&gt; columns for each sensitivity variable. First I run a simple sensitivity analysis to aid examination of the output.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_glob_sens &amp;lt;- sensRange(func = lv_model, parms = pars, dist = &amp;quot;grid&amp;quot;,
+                          sensvar = c(&amp;quot;x&amp;quot;, &amp;quot;y&amp;quot;), parRange = par_ranges,
+                          num = 4, times = seq(0, 1, by = 0.5))
+lv_glob_sens
+#&amp;gt;   alpha beta x0 x0.5   x1 y0 y0.5   y1
+#&amp;gt; 1  0.75 0.15  1 1.26 1.59  2 1.89 1.80
+#&amp;gt; 2  1.25 0.15  1 1.61 2.62  2 1.90 1.86
+#&amp;gt; 3  0.75 0.25  1 1.14 1.30  2 1.93 1.89
+#&amp;gt; 4  1.25 0.25  1 1.46 2.14  2 1.95 1.97&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Here variables such as &lt;code&gt;x0.5&lt;/code&gt; refer to the values of &lt;span class=&#34;math inline&#34;&gt;\(x\)&lt;/span&gt; at &lt;span class=&#34;math inline&#34;&gt;\(t=0.5\)&lt;/span&gt;. &lt;code&gt;FME&lt;/code&gt; provides a &lt;code&gt;plot()&lt;/code&gt; method for &lt;code&gt;sensRange&lt;/code&gt; objects, which adds envelopes to the variables showing the range and mean ± standard deviation. Now I run a more realistic sensitivity analysis and produce the plots. Note that &lt;code&gt;summary()&lt;/code&gt; must be called before &lt;code&gt;plot()&lt;/code&gt; to get the desired plots.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_glob_sens &amp;lt;- sensRange(func = lv_model, parms = pars, dist = &amp;quot;grid&amp;quot;,
+                          sensvar = c(&amp;quot;x&amp;quot;, &amp;quot;y&amp;quot;), parRange = par_ranges,
+                          num = 100, times = seq(0, 50, by = 0.25))
+lv_glob_sens %&amp;gt;% 
+  summary() %&amp;gt;% 
+  plot(main = c(&amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;),
+       xlab = &amp;quot;Time&amp;quot;, ylab = &amp;quot;Population density&amp;quot;,
+       col = c(&amp;quot;lightblue&amp;quot;, &amp;quot;darkblue&amp;quot;))
+mtext(&amp;quot;Sensitivity to alpha and beta&amp;quot;, outer = TRUE, line = -1.5, side = 3, 
+      cex = 1.25)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sense-real-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;To actually work with these data, I’ll transform the data frame from wide to long format using &lt;code&gt;tidyr&lt;/code&gt;. &lt;code&gt;gather()&lt;/code&gt; converts from wide to long format, then &lt;code&gt;separate()&lt;/code&gt; splits column names &lt;code&gt;x1.5&lt;/code&gt; into two fields: one identifying the variable (&lt;code&gt;x&lt;/code&gt;) and one specifying the time step (&lt;code&gt;1.5&lt;/code&gt;).&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_sens_long &amp;lt;- lv_glob_sens %&amp;gt;% 
+  gather(key, abundance, -alpha, -beta) %&amp;gt;% 
+  separate(key, into = c(&amp;quot;species&amp;quot;, &amp;quot;t&amp;quot;), sep = 1) %&amp;gt;% 
+  mutate(t = parse_number(t)) %&amp;gt;% 
+  select(species, t, alpha, beta, abundance)
+head(lv_sens_long)
+#&amp;gt;   species t alpha beta abundance
+#&amp;gt; 1       x 0 0.750 0.15         1
+#&amp;gt; 2       x 0 0.806 0.15         1
+#&amp;gt; 3       x 0 0.861 0.15         1
+#&amp;gt; 4       x 0 0.917 0.15         1
+#&amp;gt; 5       x 0 0.972 0.15         1
+#&amp;gt; 6       x 0 1.028 0.15         1
+glimpse(lv_sens_long)
+#&amp;gt; Observations: 40,200
+#&amp;gt; Variables: 5
+#&amp;gt; $ species   &amp;lt;chr&amp;gt; &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;, &amp;quot;x&amp;quot;,…
+#&amp;gt; $ t         &amp;lt;dbl&amp;gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
+#&amp;gt; $ alpha     &amp;lt;dbl&amp;gt; 0.750, 0.806, 0.861, 0.917, 0.972, 1.028, 1.083, 1.139, 1.1…
+#&amp;gt; $ beta      &amp;lt;dbl&amp;gt; 0.150, 0.150, 0.150, 0.150, 0.150, 0.150, 0.150, 0.150, 0.1…
+#&amp;gt; $ abundance &amp;lt;dbl&amp;gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now, I can, for example, recreate the above plot with &lt;code&gt;ggplot2&lt;/code&gt;. First, I summarize the data to calculate the envelopes, then I plot.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_sens_summ &amp;lt;- lv_sens_long %&amp;gt;% 
+  group_by(species, t) %&amp;gt;% 
+  summarize(a_mean = mean(abundance),
+            a_min = min(abundance), a_max = max(abundance),
+            a_sd = sd(abundance)) %&amp;gt;% 
+  ungroup() %&amp;gt;% 
+  mutate(a_psd = a_mean + a_sd, a_msd = a_mean - a_sd,
+         species = if_else(species == &amp;quot;x&amp;quot;, &amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;),
+         species = factor(species, levels = c(&amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;)))
+ggplot(lv_sens_summ, aes(x = t, group = species)) +
+  # mean+-sd
+  geom_ribbon(aes(ymin = a_msd, ymax = a_psd, fill = species), alpha = 0.2) +
+  # mean
+  geom_line(aes(y = a_mean, color = species)) +
+  labs(title = &amp;quot;Sensitivity to alpha and beta (mean ± sd)&amp;quot;, 
+       subtitle = &amp;quot;alpha = [0.75, 1.25]; beta = [0.15, 0.25]&amp;quot;,
+       x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;) +
+  scale_color_brewer(NULL, palette = &amp;quot;Set1&amp;quot;) +
+  scale_fill_brewer(NULL, palette = &amp;quot;Set1&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sens-ggplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;In this format, it’s also easy to fix one of the values for a sensitivity parameter and only vary the other one.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_sens_summ &amp;lt;- lv_sens_long %&amp;gt;% 
+  # fix beta at 0.15
+  filter(beta == 0.15) %&amp;gt;% 
+  group_by(species, t) %&amp;gt;% 
+  summarize(a_mean = mean(abundance),
+            a_min = min(abundance), a_max = max(abundance),
+            a_sd = sd(abundance)) %&amp;gt;% 
+  ungroup() %&amp;gt;% 
+  mutate(a_psd = a_mean + a_sd, a_msd = a_mean - a_sd,
+         species = if_else(species == &amp;quot;x&amp;quot;, &amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;),
+         species = factor(species, levels = c(&amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;)))
+ggplot(lv_sens_summ, aes(x = t, group = species)) +
+  # mean+-sd
+  geom_ribbon(aes(ymin = a_msd, ymax = a_psd, fill = species), alpha = 0.2) +
+  # mean
+  geom_line(aes(y = a_mean, color = species)) +
+  labs(title = &amp;quot;Sensitivity to alpha at fixed beta (mean ± sd)&amp;quot;, 
+       subtitle = &amp;quot;alpha = [0.75, 1.25]; beta = 0.15&amp;quot;,
+       x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;) +
+  scale_color_brewer(NULL, palette = &amp;quot;Set1&amp;quot;) +
+  scale_fill_brewer(NULL, palette = &amp;quot;Set1&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sens-ggplot-fix-beta-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;local-sensitivity-analysis&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Local sensitivity analysis&lt;/h3&gt;
+&lt;p&gt;According to the &lt;code&gt;FME&lt;/code&gt; vingette, in a local sensitivity analysis, “the effect of a parameter value in a very small region near its nominal value is estimated”. The method used by &lt;code&gt;FME&lt;/code&gt; is to calculate a matrix of &lt;strong&gt;sensitivity functions&lt;/strong&gt;, &lt;span class=&#34;math inline&#34;&gt;\(S_{i,j}\)&lt;/span&gt;, defined by:&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;math display&#34;&gt;\[
+S_{i,j} = f(v_i, p_i) = \frac{dv_i}{dp_j} \frac{s_{p_j}}{s_{v_i}}
+\]&lt;/span&gt;&lt;/p&gt;
+&lt;p&gt;where &lt;span class=&#34;math inline&#34;&gt;\(v_i\)&lt;/span&gt; is a sensitivity variable &lt;span class=&#34;math inline&#34;&gt;\(i\)&lt;/span&gt; (which is dependent on time &lt;span class=&#34;math inline&#34;&gt;\(t\)&lt;/span&gt;), &lt;span class=&#34;math inline&#34;&gt;\(p_j\)&lt;/span&gt; is sensitivity parameter &lt;span class=&#34;math inline&#34;&gt;\(j\)&lt;/span&gt;, and &lt;span class=&#34;math inline&#34;&gt;\(s_{v_i}\)&lt;/span&gt; and &lt;span class=&#34;math inline&#34;&gt;\(s_{p_j}\)&lt;/span&gt; are scaling factors for variables and parameters, respectively. By default, &lt;code&gt;FME&lt;/code&gt; takes the scaling values to be equal to the underlying quantities, in which case the above equation simplifies to:&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;math display&#34;&gt;\[
+S_{i,j} = f(v_i, p_i) = \frac{dv_i}{dp_j} \frac{p_j}{v_i}
+\]&lt;/span&gt;&lt;/p&gt;
+&lt;p&gt;The function &lt;code&gt;sensFun()&lt;/code&gt; is used to numerically estimate these sensitivity functions at a series of time steps. The arguments &lt;code&gt;sensvar&lt;/code&gt; and &lt;code&gt;senspar&lt;/code&gt; are used to define which variables and parameters, respectively, will be investigated in the sensitivity analysis. By default, all variables are parameters are included. The arguments &lt;code&gt;varscale&lt;/code&gt; and &lt;code&gt;parscale&lt;/code&gt; define the scaling factors; however, for now, I’ll leave them blank, which sets them to the underlying quantities as in the above equation.&lt;/p&gt;
+&lt;p&gt;In practice, &lt;code&gt;sensFun()&lt;/code&gt; works by applying a small perturbation, &lt;span class=&#34;math inline&#34;&gt;\(\delta_j\)&lt;/span&gt;, to parameter &lt;span class=&#34;math inline&#34;&gt;\(j\)&lt;/span&gt;, solving the model for a range of time steps to determine &lt;span class=&#34;math inline&#34;&gt;\(v_i\)&lt;/span&gt;, then taking the ratio of the changes to the parameters and variables. The perturbation is defined by the argument &lt;code&gt;tiny&lt;/code&gt; as &lt;span class=&#34;math inline&#34;&gt;\(\delta_j = \text{max}(tiny, tiny * p_j)\)&lt;/span&gt;. &lt;code&gt;tiny&lt;/code&gt; defaults to &lt;span class=&#34;math inline&#34;&gt;\(10^{-8}\)&lt;/span&gt;.&lt;/p&gt;
+&lt;p&gt;To test that &lt;code&gt;sensFun()&lt;/code&gt; is doing what I think it is, I’ll implement a version of it. For simplicity, I’ll only consider the variable &lt;span class=&#34;math inline&#34;&gt;\(x\)&lt;/span&gt; (prey density):&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;sen_fun &amp;lt;- function(fun, pars, times, tiny = 1e-8) {
+  # the unperturbed values, just x
+  v_unpert &amp;lt;- fun(pars, times)[, &amp;quot;x&amp;quot;]
+  # loop over parameters, pertuburbing each in turn
+  s_ij &amp;lt;- matrix(NA, nrow = length(times), ncol = (1 + length(pars)))
+  s_ij[, 1] &amp;lt;- times
+  colnames(s_ij) &amp;lt;- c(&amp;quot;t&amp;quot;, names(pars))
+  for (j in seq_along(pars)) {
+    # perturb the ith parameter
+    delta &amp;lt;- max(tiny, abs(tiny * pars[j]))
+    p_pert &amp;lt;- pars
+    p_pert[j] &amp;lt;- p_pert[j] + delta
+    # solve model
+    v_pert &amp;lt;- fun(pars = p_pert, times = times)[, &amp;quot;x&amp;quot;]
+    # calculate the resulting difference in variables at each timestep, just x
+    delta_v &amp;lt;- (v_pert - v_unpert)
+    # finally, calculate the sensitivity function at each time step
+    s_ij[, j + 1] &amp;lt;- (delta_v / delta) * (pars[j] / v_unpert)
+  }
+  return(s_ij)
+}&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now I compare this implementation to the actual results.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;test_pars &amp;lt;- c(alpha = 1.5, beta = 0.2, delta = 0.5, gamma = 0.2)
+sen_fun(lv_model, pars = test_pars, times = 0:2)
+#&amp;gt;      t alpha   beta  delta  gamma
+#&amp;gt; [1,] 0  0.00  0.000  0.000 0.0000
+#&amp;gt; [2,] 1  1.48 -0.415 -0.029 0.0386
+#&amp;gt; [3,] 2  2.69 -0.966 -0.210 0.1655
+sensFun(lv_model, parms = test_pars, sensvar = &amp;quot;x&amp;quot;, times = 0:2)
+#&amp;gt;   x var alpha   beta  delta  gamma
+#&amp;gt; 1 0   x  0.00  0.000  0.000 0.0000
+#&amp;gt; 2 1   x  1.48 -0.415 -0.029 0.0386
+#&amp;gt; 3 2   x  2.69 -0.966 -0.210 0.1655&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;A perfect match! Now that I know what &lt;code&gt;sensFun()&lt;/code&gt; is actually doing, I’ll put it to use to solve the original LV model. One difference here is that I’ll consider both variables as sensitivity variables and the results for each variable will be stacked rowwise. In addition, in the &lt;code&gt;FME&lt;/code&gt; documentation, &lt;span class=&#34;math inline&#34;&gt;\(s_{v_i}\)&lt;/span&gt; is set to 1, which is on the order of the actual variable values, but has the benefit of being constant over time. I’ll do the same here.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_loc_sens &amp;lt;- sensFun(lv_model, parms = pars, varscale = 1, 
+                       times = seq(0, 50, by = 0.25))
+head(lv_loc_sens)
+#&amp;gt;      x var alpha   beta    delta   gamma
+#&amp;gt; 1 0.00   x 0.000  0.000  0.00000 0.00000
+#&amp;gt; 2 0.25   x 0.291 -0.116 -0.00151 0.00286
+#&amp;gt; 3 0.50   x 0.677 -0.272 -0.00729 0.01316
+#&amp;gt; 4 0.75   x 1.182 -0.478 -0.01997 0.03413
+#&amp;gt; 5 1.00   x 1.833 -0.749 -0.04341 0.07015
+#&amp;gt; 6 1.25   x 2.663 -1.104 -0.08330 0.12706
+tail(lv_loc_sens)
+#&amp;gt;        x var alpha  beta  delta gamma
+#&amp;gt; 397 48.8   y -1.95 -5.45 -0.933 -9.07
+#&amp;gt; 398 49.0   y -1.81 -4.95 -0.831 -8.38
+#&amp;gt; 399 49.2   y -1.66 -4.43 -0.725 -7.64
+#&amp;gt; 400 49.5   y -1.49 -3.90 -0.614 -6.87
+#&amp;gt; 401 49.8   y -1.30 -3.34 -0.495 -6.04
+#&amp;gt; 402 50.0   y -1.08 -2.75 -0.367 -5.15&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;summary()&lt;/code&gt; can be used to summarize these results over the time series, for example, to see which parameters the model is most sensitive too.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;summary(lv_loc_sens)
+#&amp;gt;       value scale   L1   L2 Mean Min Max   N
+#&amp;gt; alpha   1.0   1.0  6.5 11.2  2.2 -35  44 402
+#&amp;gt; beta    0.2   0.2  8.3 12.5 -4.1 -56  33 402
+#&amp;gt; delta   0.5   0.5  2.5  4.3 -1.1 -19  11 402
+#&amp;gt; gamma   0.2   0.2 10.8 18.2 -0.1 -78  74 402&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; (predator mortality rate) and &lt;span class=&#34;math inline&#34;&gt;\(\beta\)&lt;/span&gt; (predator search efficiency) have the largest values for the sensitivity function, on average, suggesting that this model is most sensitive to these parameters. There is also plot method for the output of &lt;code&gt;sensFun()&lt;/code&gt;, which plots the sensitivity functions as time series.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;plot(lv_loc_sens)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/loc-base-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;However, it’s also possible to use &lt;code&gt;ggplot2&lt;/code&gt; provided I transpose the data to long format first.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_loc_long &amp;lt;- lv_loc_sens %&amp;gt;% 
+  gather(parameter, sensitivity, -x, -var) %&amp;gt;% 
+  mutate(var = if_else(var == &amp;quot;x&amp;quot;, &amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;))
+ggplot(lv_loc_long, aes(x = x, y = sensitivity)) +
+  geom_line(aes(colour = parameter, linetype = var)) +
+  scale_color_brewer(&amp;quot;Parameter&amp;quot;, palette = &amp;quot;Set1&amp;quot;) +
+  scale_linetype_discrete(&amp;quot;Variable&amp;quot;) +
+  labs(title = &amp;quot;Lotka-Volterra parameter sensitivity functions&amp;quot;, 
+       subtitle = paste(names(pars), pars, sep = &amp;quot; = &amp;quot;, collapse = &amp;quot;; &amp;quot;),
+       x = &amp;quot;Time&amp;quot;, y = &amp;quot;Sensitivity&amp;quot;) + 
+  theme(legend.position = &amp;quot;bottom&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/loc-ggplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;Clearly this model is particularly sensitive to &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt;. Furthermore, this sensitivity shows peaks every 16 seconds or so, which is the periodicity of the original dynamics. To see what’s going on here, I’ll take a look at what happens to the two species when I increase &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; by 1%:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# original model
+lv_results &amp;lt;- lv_model(pars, times = seq(0, 50, by = 0.25)) %&amp;gt;% 
+  data.frame() %&amp;gt;% 
+  gather(var, pop, -time) %&amp;gt;% 
+  mutate(var = if_else(var == &amp;quot;x&amp;quot;, &amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;),
+         par = as.character(pars[&amp;quot;gamma&amp;quot;]))
+# perturbed model
+new_pars &amp;lt;- pars
+new_pars[&amp;quot;gamma&amp;quot;] &amp;lt;- new_pars[&amp;quot;gamma&amp;quot;] * 1.1
+lv_results_gamma &amp;lt;- lv_model(new_pars, times = seq(0, 50, by = 0.25)) %&amp;gt;% 
+  data.frame() %&amp;gt;% 
+  gather(var, pop, -time) %&amp;gt;% 
+  mutate(var = if_else(var == &amp;quot;x&amp;quot;, &amp;quot;Prey&amp;quot;, &amp;quot;Predator&amp;quot;),
+         par = as.character(new_pars[&amp;quot;gamma&amp;quot;]))
+# plot
+ggplot(bind_rows(lv_results, lv_results_gamma), aes(x = time, y = pop)) +
+  geom_line(aes(color = var, linetype = par)) +
+  scale_color_brewer(&amp;quot;Species&amp;quot;, palette = &amp;quot;Set1&amp;quot;) +
+  scale_linetype_discrete(&amp;quot;gamma&amp;quot;) +
+  labs(title = &amp;quot;Lotka-Volterra predator prey model&amp;quot;,
+       subtitle = &amp;quot;Increasing gamma leads to period increasing with time&amp;quot;,
+       x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;) +
+  theme(legend.position = &amp;quot;bottom&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/gamma-pert-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;Increasing &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; leads to a time dependent period to the dynamics. As a result, the two models initially overlap, but they become increasingly out of sync over time. This explains both the periodicity of the sensitivity function and the increasing amplitude.&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>
