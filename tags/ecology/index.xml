@@ -2,21 +2,21 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Ecology | Matt Strimas-Mackey</title>
-    <link>https://strimas.com/tags/ecology/</link>
-      <atom:link href="https://strimas.com/tags/ecology/index.xml" rel="self" type="application/rss+xml" />
+    <link>/tags/ecology/</link>
+      <atom:link href="/tags/ecology/index.xml" rel="self" type="application/rss+xml" />
     <description>Ecology</description>
     <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Fri, 13 Oct 2017 00:00:00 +0000</lastBuildDate>
     <image>
       <url>img/map[gravatar:%!s(bool=false) shape:circle]</url>
       <title>Ecology</title>
-      <link>https://strimas.com/tags/ecology/</link>
+      <link>/tags/ecology/</link>
     </image>
     
     <item>
       <title>Lotka-Volterra Predator Prey Model</title>
-      <link>https://strimas.com/post/lotka-volterra/</link>
+      <link>/post/lotka-volterra/</link>
       <pubDate>Fri, 13 Oct 2017 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/post/lotka-volterra/</guid>
+      <guid>/post/lotka-volterra/</guid>
       <description>
 
 
@@ -80,7 +80,7 @@ lv_results &amp;lt;- lv_model(pars = pars, times = seq(0, 50, by = 0.25))&lt;/co
     labs(title = &amp;quot;Lotka-Volterra predator prey model&amp;quot;,
          subtitle = paste(names(pars), pars, sep = &amp;quot; = &amp;quot;, collapse = &amp;quot;; &amp;quot;),
          x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/time-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/time-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;This choice of paramters leads to periodic dynamics in which the prey population initially increases, leading to an abundance of food for the predators. The predators increase in response (lagging the prey population), eventually overwhelming the prey population, which crashes. This in turn causes the predators to crash, and the cycle repeats. The period of these dynamics is about 15 seconds, with the predators lagging the prey by about a second.&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;sensitivity-analysis&#34; class=&#34;section level2&#34;&gt;
@@ -119,7 +119,7 @@ lv_glob_sens %&amp;gt;%
        col = c(&amp;quot;lightblue&amp;quot;, &amp;quot;darkblue&amp;quot;))
 mtext(&amp;quot;Sensitivity to alpha and beta&amp;quot;, outer = TRUE, line = -1.5, side = 3, 
       cex = 1.25)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sense-real-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sense-real-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;To actually work with these data, I’ll transform the data frame from wide to long format using &lt;code&gt;tidyr&lt;/code&gt;. &lt;code&gt;gather()&lt;/code&gt; converts from wide to long format, then &lt;code&gt;separate()&lt;/code&gt; splits column names &lt;code&gt;x1.5&lt;/code&gt; into two fields: one identifying the variable (&lt;code&gt;x&lt;/code&gt;) and one specifying the time step (&lt;code&gt;1.5&lt;/code&gt;).&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_sens_long &amp;lt;- lv_glob_sens %&amp;gt;% 
   gather(key, abundance, -alpha, -beta) %&amp;gt;% 
@@ -162,7 +162,7 @@ ggplot(lv_sens_summ, aes(x = t, group = species)) +
        x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;) +
   scale_color_brewer(NULL, palette = &amp;quot;Set1&amp;quot;) +
   scale_fill_brewer(NULL, palette = &amp;quot;Set1&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sens-ggplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sens-ggplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;In this format, it’s also easy to fix one of the values for a sensitivity parameter and only vary the other one.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_sens_summ &amp;lt;- lv_sens_long %&amp;gt;% 
   # fix beta at 0.15
@@ -185,7 +185,7 @@ ggplot(lv_sens_summ, aes(x = t, group = species)) +
        x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;) +
   scale_color_brewer(NULL, palette = &amp;quot;Set1&amp;quot;) +
   scale_fill_brewer(NULL, palette = &amp;quot;Set1&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sens-ggplot-fix-beta-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sens-ggplot-fix-beta-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;local-sensitivity-analysis&#34; class=&#34;section level3&#34;&gt;
 &lt;h3&gt;Local sensitivity analysis&lt;/h3&gt;
@@ -261,7 +261,7 @@ tail(lv_loc_sens)
 #&amp;gt; gamma   0.2   0.2 10.8 18.2 -0.1 -78  74 402&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;&lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; (predator mortality rate) and &lt;span class=&#34;math inline&#34;&gt;\(\beta\)&lt;/span&gt; (predator search efficiency) have the largest values for the sensitivity function, on average, suggesting that this model is most sensitive to these parameters. There is also plot method for the output of &lt;code&gt;sensFun()&lt;/code&gt;, which plots the sensitivity functions as time series.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;plot(lv_loc_sens)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/loc-base-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/loc-base-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;However, it’s also possible to use &lt;code&gt;ggplot2&lt;/code&gt; provided I transpose the data to long format first.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_loc_long &amp;lt;- lv_loc_sens %&amp;gt;% 
   gather(parameter, sensitivity, -x, -var) %&amp;gt;% 
@@ -274,7 +274,7 @@ ggplot(lv_loc_long, aes(x = x, y = sensitivity)) +
        subtitle = paste(names(pars), pars, sep = &amp;quot; = &amp;quot;, collapse = &amp;quot;; &amp;quot;),
        x = &amp;quot;Time&amp;quot;, y = &amp;quot;Sensitivity&amp;quot;) + 
   theme(legend.position = &amp;quot;bottom&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/loc-ggplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/loc-ggplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;Clearly this model is particularly sensitive to &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt;. Furthermore, this sensitivity shows peaks every 16 seconds or so, which is the periodicity of the original dynamics. To see what’s going on here, I’ll take a look at what happens to the two species when I increase &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; by 1%:&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# original model
 lv_results &amp;lt;- lv_model(pars, times = seq(0, 50, by = 0.25)) %&amp;gt;% 
@@ -299,7 +299,7 @@ ggplot(bind_rows(lv_results, lv_results_gamma), aes(x = time, y = pop)) +
        subtitle = &amp;quot;Increasing gamma leads to period increasing with time&amp;quot;,
        x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;) +
   theme(legend.position = &amp;quot;bottom&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/gamma-pert-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/gamma-pert-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;Increasing &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; leads to a time dependent period to the dynamics. As a result, the two models initially overlap, but they become increasingly out of sync over time. This explains both the periodicity of the sensitivity function and the increasing amplitude.&lt;/p&gt;
 &lt;/div&gt;
 &lt;/div&gt;

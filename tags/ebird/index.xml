@@ -2,45 +2,45 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>eBird | Matt Strimas-Mackey</title>
-    <link>https://strimas.com/tags/ebird/</link>
-      <atom:link href="https://strimas.com/tags/ebird/index.xml" rel="self" type="application/rss+xml" />
+    <link>/tags/ebird/</link>
+      <atom:link href="/tags/ebird/index.xml" rel="self" type="application/rss+xml" />
     <description>eBird</description>
     <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Thu, 19 Mar 2020 00:00:00 +0000</lastBuildDate>
     <image>
       <url>img/map[gravatar:%!s(bool=false) shape:circle]</url>
       <title>eBird</title>
-      <link>https://strimas.com/tags/ebird/</link>
+      <link>/tags/ebird/</link>
     </image>
     
     <item>
       <title>eBird Status &amp; Trends</title>
-      <link>https://strimas.com/project/ebirdst/</link>
+      <link>/project/ebirdst/</link>
       <pubDate>Thu, 19 Mar 2020 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/project/ebirdst/</guid>
+      <guid>/project/ebirdst/</guid>
       <description></description>
     </item>
     
     <item>
       <title>eBird Best Practices</title>
-      <link>https://strimas.com/project/ebp/</link>
+      <link>/project/ebp/</link>
       <pubDate>Wed, 18 Mar 2020 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/project/ebp/</guid>
+      <guid>/project/ebp/</guid>
       <description></description>
     </item>
     
     <item>
       <title>ebirdst</title>
-      <link>https://strimas.com/project/rebirdst/</link>
+      <link>/project/rebirdst/</link>
       <pubDate>Tue, 17 Mar 2020 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/project/rebirdst/</guid>
+      <guid>/project/rebirdst/</guid>
       <description></description>
     </item>
     
     <item>
       <title>auk</title>
-      <link>https://strimas.com/project/auk/</link>
+      <link>/project/auk/</link>
       <pubDate>Mon, 16 Mar 2020 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/project/auk/</guid>
+      <guid>/project/auk/</guid>
       <description></description>
     </item>
     

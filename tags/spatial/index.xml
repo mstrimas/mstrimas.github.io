@@ -2,21 +2,21 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Spatial | Matt Strimas-Mackey</title>
-    <link>https://strimas.com/tags/spatial/</link>
-      <atom:link href="https://strimas.com/tags/spatial/index.xml" rel="self" type="application/rss+xml" />
+    <link>/tags/spatial/</link>
+      <atom:link href="/tags/spatial/index.xml" rel="self" type="application/rss+xml" />
     <description>Spatial</description>
     <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Fri, 20 Mar 2020 00:00:00 +0000</lastBuildDate>
     <image>
       <url>img/map[gravatar:%!s(bool=false) shape:circle]</url>
       <title>Spatial</title>
-      <link>https://strimas.com/tags/spatial/</link>
+      <link>/tags/spatial/</link>
     </image>
     
     <item>
       <title>Processing Large Rasters in R</title>
-      <link>https://strimas.com/post/processing-large-rasters-in-r/</link>
+      <link>/post/processing-large-rasters-in-r/</link>
       <pubDate>Fri, 20 Mar 2020 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/post/processing-large-rasters-in-r/</guid>
+      <guid>/post/processing-large-rasters-in-r/</guid>
       <description>
 
 
@@ -45,7 +45,7 @@ levelplot(r,
           scales = list(draw = FALSE),
           names.attr = paste(&amp;quot;Band&amp;quot;, seq_len(nlayers(r))),
           maxpixels = 1e6)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2020-03-20-processing-large-rasters-in-r/index_files/figure-html/read-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2020-03-20-processing-large-rasters-in-r/index_files/figure-html/read-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;We can calculate the total number of values this raster can store and the associated memory requirements assuming 8 bytes per cell value. To calculate the actual memory used, we can override the default &lt;code&gt;raster&lt;/code&gt; behavior and read the contents of the file into R using &lt;code&gt;readAll()&lt;/code&gt;.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;n_values &amp;lt;- ncell(r) * nlayers(r)
 # memory in mb
@@ -252,9 +252,9 @@ t_ondisk[3]
     
     <item>
       <title>Fishnets and Honeycomb: Square vs. Hexagonal Spatial Grids</title>
-      <link>https://strimas.com/post/hexagonal-grids/</link>
+      <link>/post/hexagonal-grids/</link>
       <pubDate>Thu, 14 Jan 2016 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/post/hexagonal-grids/</guid>
+      <guid>/post/hexagonal-grids/</guid>
       <description>
 
 
@@ -316,7 +316,7 @@ study_area &amp;lt;- sapply(study_area@polygons, slot, &amp;quot;area&amp;quot;)
   study_area[.]
 plot(study_area, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = TRUE, cex = 20)
 text(81.5, 9.5, &amp;quot;Study Area:\nSri Lanka&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/study-region-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/study-region-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;creating-grids&#34; class=&#34;section level2&#34;&gt;
 &lt;h2&gt;Creating grids&lt;/h2&gt;
@@ -329,7 +329,7 @@ hex_grid &amp;lt;- HexPoints2SpatialPolygons(hex_points, dx = size)
 plot(study_area, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = TRUE)
 plot(hex_points, col = &amp;quot;black&amp;quot;, pch = 20, cex = 0.5, add = T)
 plot(hex_grid, border = &amp;quot;orange&amp;quot;, add = T)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/hex-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/hex-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;A few issues arise with this simple method:&lt;/p&gt;
 &lt;ol style=&#34;list-style-type: decimal&#34;&gt;
 &lt;li&gt;&lt;code&gt;spsample&lt;/code&gt; generates a different grid of points each time it’s called because the grid offset is chosen randomly by default. This can be fixed by setting the offset parameter explicitly with &lt;code&gt;offset = c(0, 0)&lt;/code&gt;.&lt;/li&gt;
@@ -379,7 +379,7 @@ hex_grid &amp;lt;- make_grid(study_area_utm, cell_area = 625, clip = TRUE)
 plot(study_area_utm, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = FALSE)
 plot(hex_grid, border = &amp;quot;orange&amp;quot;, add = TRUE)
 box()&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/nice-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/nice-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;square-grid&#34; class=&#34;section level3&#34;&gt;
 &lt;h3&gt;Square grid&lt;/h3&gt;
@@ -388,7 +388,7 @@ box()&lt;/code&gt;&lt;/pre&gt;
 r &amp;lt;- rasterize(study_area_utm, r, field = 1)
 plot(r, col = &amp;quot;grey50&amp;quot;, axes = FALSE, legend = FALSE, bty=&amp;quot;n&amp;quot;, box=FALSE)
 plot(study_area_utm, add = TRUE)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/raster-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/raster-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;In addition to the raster formats defined in the &lt;code&gt;raster&lt;/code&gt; package, the &lt;code&gt;sp&lt;/code&gt; package offers several options for square grids. The class &lt;code&gt;SpatialPixels&lt;/code&gt; is used for partial grids (i.e. not every cell included) and stores the coordinates of all included cell centers. &lt;code&gt;SpatialGrid&lt;/code&gt; objects store full grids and do not store coordinates explicitly. Underlying both classes is the &lt;code&gt;GridTopology&lt;/code&gt; class, which stores the grid template (origin, cell size, and dimensions). I never use these classes since the &lt;code&gt;raster&lt;/code&gt; classes and methods are more intuitive and efficient.&lt;/p&gt;
 &lt;p&gt;The final option from the &lt;code&gt;sp&lt;/code&gt; package is simply to store a square grid as polygons (&lt;code&gt;SpatialPolygons&lt;/code&gt; object), just as I did with the hexagonal grids above. In this case, I find the easiest way to define a grid of square polygons is to start with an empty &lt;code&gt;RasterLayer&lt;/code&gt; object, coerce it to &lt;code&gt;SpatialPolygons&lt;/code&gt;, and clip it as necessary. I incorporate this into the above grid generation function, which now creates hexagonal &lt;em&gt;or&lt;/em&gt; square grids as desired.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;make_grid &amp;lt;- function(x, type, cell_width, cell_area, clip = FALSE) {
@@ -452,7 +452,7 @@ sq_grid_c &amp;lt;- make_grid(study_area_utm, type = &amp;quot;square&amp;quot;,
 plot(study_area_utm, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = FALSE)
 plot(sq_grid_c, border = &amp;quot;orange&amp;quot;, add = TRUE)
 box()&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/square-polys-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/square-polys-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;div id=&#34;working-with-grids&#34; class=&#34;section level2&#34;&gt;
@@ -521,7 +521,7 @@ spplot(point_density, bird_families,
        par.settings = list(
          strip.background = list(col = &amp;quot;grey40&amp;quot;))
        )&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/point-density-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/point-density-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;I’ve used &lt;code&gt;spplot()&lt;/code&gt; here, and chosen to use a logarithmic scale, which means a big mess of legend parameters. Unfortunately, the data aren’t all that interesting, though I think the maps are pretty!&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;polygon-coverage&#34; class=&#34;section level3&#34;&gt;
@@ -567,7 +567,7 @@ p2 &amp;lt;- spplot(hex_cover, &amp;quot;pct_cover&amp;quot;, col = &amp;quot;wh
          axis.line = list(col =  &amp;#39;black&amp;#39;))
        )
 grid.arrange(p1, p2, ncol = 2, top = &amp;quot;Ecuador: Coverage by Pastaza State&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/cover-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/cover-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;Again, these data are not very interesting, but the example is illustrative.&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;raster-aggregation&#34; class=&#34;section level3&#34;&gt;
@@ -598,7 +598,7 @@ p2 &amp;lt;- spplot(hex_srtm,
              )
       )
 grid.arrange(p1, p2, ncol = 2, top = &amp;quot;Ecuador SRTM Elevation (m)&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/extract-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/extract-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;The raster package makes this aggregation task extremely easy, just a single line of code! I’ve also used &lt;code&gt;levelplot()&lt;/code&gt; from &lt;code&gt;rasterVis&lt;/code&gt;, which provides a nice system for mapping raster data.&lt;/p&gt;
 &lt;div class=&#34;footnotes&#34;&gt;
 &lt;p&gt;

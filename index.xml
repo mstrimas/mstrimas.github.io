@@ -2,21 +2,21 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Matt Strimas-Mackey</title>
-    <link>https://strimas.com/</link>
-      <atom:link href="https://strimas.com/index.xml" rel="self" type="application/rss+xml" />
+    <link>/</link>
+      <atom:link href="/index.xml" rel="self" type="application/rss+xml" />
     <description>Matt Strimas-Mackey</description>
     <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Fri, 20 Mar 2020 00:00:00 +0000</lastBuildDate>
     <image>
       <url>img/map[gravatar:%!s(bool=false) shape:circle]</url>
       <title>Matt Strimas-Mackey</title>
-      <link>https://strimas.com/</link>
+      <link>/</link>
     </image>
     
     <item>
       <title>Processing Large Rasters in R</title>
-      <link>https://strimas.com/post/processing-large-rasters-in-r/</link>
+      <link>/post/processing-large-rasters-in-r/</link>
       <pubDate>Fri, 20 Mar 2020 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/post/processing-large-rasters-in-r/</guid>
+      <guid>/post/processing-large-rasters-in-r/</guid>
       <description>
 
 
@@ -45,7 +45,7 @@ levelplot(r,
           scales = list(draw = FALSE),
           names.attr = paste(&amp;quot;Band&amp;quot;, seq_len(nlayers(r))),
           maxpixels = 1e6)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2020-03-20-processing-large-rasters-in-r/index_files/figure-html/read-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2020-03-20-processing-large-rasters-in-r/index_files/figure-html/read-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;We can calculate the total number of values this raster can store and the associated memory requirements assuming 8 bytes per cell value. To calculate the actual memory used, we can override the default &lt;code&gt;raster&lt;/code&gt; behavior and read the contents of the file into R using &lt;code&gt;readAll()&lt;/code&gt;.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;n_values &amp;lt;- ncell(r) * nlayers(r)
 # memory in mb
@@ -252,49 +252,49 @@ t_ondisk[3]
     
     <item>
       <title>eBird Status &amp; Trends</title>
-      <link>https://strimas.com/project/ebirdst/</link>
+      <link>/project/ebirdst/</link>
       <pubDate>Thu, 19 Mar 2020 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/project/ebirdst/</guid>
+      <guid>/project/ebirdst/</guid>
       <description></description>
     </item>
     
     <item>
       <title>eBird Best Practices</title>
-      <link>https://strimas.com/project/ebp/</link>
+      <link>/project/ebp/</link>
       <pubDate>Wed, 18 Mar 2020 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/project/ebp/</guid>
+      <guid>/project/ebp/</guid>
       <description></description>
     </item>
     
     <item>
       <title>ebirdst</title>
-      <link>https://strimas.com/project/rebirdst/</link>
+      <link>/project/rebirdst/</link>
       <pubDate>Tue, 17 Mar 2020 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/project/rebirdst/</guid>
+      <guid>/project/rebirdst/</guid>
       <description></description>
     </item>
     
     <item>
       <title>auk</title>
-      <link>https://strimas.com/project/auk/</link>
+      <link>/project/auk/</link>
       <pubDate>Mon, 16 Mar 2020 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/project/auk/</guid>
+      <guid>/project/auk/</guid>
       <description></description>
     </item>
     
     <item>
       <title>prioritizr</title>
-      <link>https://strimas.com/project/prioritizr/</link>
+      <link>/project/prioritizr/</link>
       <pubDate>Sun, 15 Mar 2020 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/project/prioritizr/</guid>
+      <guid>/project/prioritizr/</guid>
       <description></description>
     </item>
     
     <item>
       <title>An example preprint / working paper</title>
-      <link>https://strimas.com/publication/preprint/</link>
+      <link>/publication/preprint/</link>
       <pubDate>Sun, 07 Apr 2019 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/publication/preprint/</guid>
+      <guid>/publication/preprint/</guid>
       <description>&lt;div class=&#34;alert alert-note&#34;&gt;
   &lt;div&gt;
     Click the &lt;em&gt;Slides&lt;/em&gt; button above to demo Academic&amp;rsquo;s Markdown slides feature.
@@ -307,9 +307,9 @@ t_ondisk[3]
     
     <item>
       <title>Lotka-Volterra Predator Prey Model</title>
-      <link>https://strimas.com/post/lotka-volterra/</link>
+      <link>/post/lotka-volterra/</link>
       <pubDate>Fri, 13 Oct 2017 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/post/lotka-volterra/</guid>
+      <guid>/post/lotka-volterra/</guid>
       <description>
 
 
@@ -373,7 +373,7 @@ lv_results &amp;lt;- lv_model(pars = pars, times = seq(0, 50, by = 0.25))&lt;/co
     labs(title = &amp;quot;Lotka-Volterra predator prey model&amp;quot;,
          subtitle = paste(names(pars), pars, sep = &amp;quot; = &amp;quot;, collapse = &amp;quot;; &amp;quot;),
          x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/time-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/time-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;This choice of paramters leads to periodic dynamics in which the prey population initially increases, leading to an abundance of food for the predators. The predators increase in response (lagging the prey population), eventually overwhelming the prey population, which crashes. This in turn causes the predators to crash, and the cycle repeats. The period of these dynamics is about 15 seconds, with the predators lagging the prey by about a second.&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;sensitivity-analysis&#34; class=&#34;section level2&#34;&gt;
@@ -412,7 +412,7 @@ lv_glob_sens %&amp;gt;%
        col = c(&amp;quot;lightblue&amp;quot;, &amp;quot;darkblue&amp;quot;))
 mtext(&amp;quot;Sensitivity to alpha and beta&amp;quot;, outer = TRUE, line = -1.5, side = 3, 
       cex = 1.25)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sense-real-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sense-real-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;To actually work with these data, I’ll transform the data frame from wide to long format using &lt;code&gt;tidyr&lt;/code&gt;. &lt;code&gt;gather()&lt;/code&gt; converts from wide to long format, then &lt;code&gt;separate()&lt;/code&gt; splits column names &lt;code&gt;x1.5&lt;/code&gt; into two fields: one identifying the variable (&lt;code&gt;x&lt;/code&gt;) and one specifying the time step (&lt;code&gt;1.5&lt;/code&gt;).&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_sens_long &amp;lt;- lv_glob_sens %&amp;gt;% 
   gather(key, abundance, -alpha, -beta) %&amp;gt;% 
@@ -455,7 +455,7 @@ ggplot(lv_sens_summ, aes(x = t, group = species)) +
        x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;) +
   scale_color_brewer(NULL, palette = &amp;quot;Set1&amp;quot;) +
   scale_fill_brewer(NULL, palette = &amp;quot;Set1&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sens-ggplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sens-ggplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;In this format, it’s also easy to fix one of the values for a sensitivity parameter and only vary the other one.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_sens_summ &amp;lt;- lv_sens_long %&amp;gt;% 
   # fix beta at 0.15
@@ -478,7 +478,7 @@ ggplot(lv_sens_summ, aes(x = t, group = species)) +
        x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;) +
   scale_color_brewer(NULL, palette = &amp;quot;Set1&amp;quot;) +
   scale_fill_brewer(NULL, palette = &amp;quot;Set1&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sens-ggplot-fix-beta-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/glob-sens-ggplot-fix-beta-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;local-sensitivity-analysis&#34; class=&#34;section level3&#34;&gt;
 &lt;h3&gt;Local sensitivity analysis&lt;/h3&gt;
@@ -554,7 +554,7 @@ tail(lv_loc_sens)
 #&amp;gt; gamma   0.2   0.2 10.8 18.2 -0.1 -78  74 402&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;&lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; (predator mortality rate) and &lt;span class=&#34;math inline&#34;&gt;\(\beta\)&lt;/span&gt; (predator search efficiency) have the largest values for the sensitivity function, on average, suggesting that this model is most sensitive to these parameters. There is also plot method for the output of &lt;code&gt;sensFun()&lt;/code&gt;, which plots the sensitivity functions as time series.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;plot(lv_loc_sens)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/loc-base-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/loc-base-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;However, it’s also possible to use &lt;code&gt;ggplot2&lt;/code&gt; provided I transpose the data to long format first.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lv_loc_long &amp;lt;- lv_loc_sens %&amp;gt;% 
   gather(parameter, sensitivity, -x, -var) %&amp;gt;% 
@@ -567,7 +567,7 @@ ggplot(lv_loc_long, aes(x = x, y = sensitivity)) +
        subtitle = paste(names(pars), pars, sep = &amp;quot; = &amp;quot;, collapse = &amp;quot;; &amp;quot;),
        x = &amp;quot;Time&amp;quot;, y = &amp;quot;Sensitivity&amp;quot;) + 
   theme(legend.position = &amp;quot;bottom&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/loc-ggplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/loc-ggplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;Clearly this model is particularly sensitive to &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt;. Furthermore, this sensitivity shows peaks every 16 seconds or so, which is the periodicity of the original dynamics. To see what’s going on here, I’ll take a look at what happens to the two species when I increase &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; by 1%:&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# original model
 lv_results &amp;lt;- lv_model(pars, times = seq(0, 50, by = 0.25)) %&amp;gt;% 
@@ -592,7 +592,7 @@ ggplot(bind_rows(lv_results, lv_results_gamma), aes(x = time, y = pop)) +
        subtitle = &amp;quot;Increasing gamma leads to period increasing with time&amp;quot;,
        x = &amp;quot;Time&amp;quot;, y = &amp;quot;Population density&amp;quot;) +
   theme(legend.position = &amp;quot;bottom&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2017-10-13-lotka-volterra/index_files/figure-html/gamma-pert-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2017-10-13-lotka-volterra/index_files/figure-html/gamma-pert-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;Increasing &lt;span class=&#34;math inline&#34;&gt;\(\gamma\)&lt;/span&gt; leads to a time dependent period to the dynamics. As a result, the two models initially overlap, but they become increasingly out of sync over time. This explains both the periodicity of the sensitivity function and the increasing amplitude.&lt;/p&gt;
 &lt;/div&gt;
 &lt;/div&gt;
@@ -601,9 +601,9 @@ ggplot(bind_rows(lv_results, lv_results_gamma), aes(x = time, y = pop)) +
     
     <item>
       <title>Fishnets and Honeycomb: Square vs. Hexagonal Spatial Grids</title>
-      <link>https://strimas.com/post/hexagonal-grids/</link>
+      <link>/post/hexagonal-grids/</link>
       <pubDate>Thu, 14 Jan 2016 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/post/hexagonal-grids/</guid>
+      <guid>/post/hexagonal-grids/</guid>
       <description>
 
 
@@ -665,7 +665,7 @@ study_area &amp;lt;- sapply(study_area@polygons, slot, &amp;quot;area&amp;quot;)
   study_area[.]
 plot(study_area, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = TRUE, cex = 20)
 text(81.5, 9.5, &amp;quot;Study Area:\nSri Lanka&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/study-region-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/study-region-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;creating-grids&#34; class=&#34;section level2&#34;&gt;
 &lt;h2&gt;Creating grids&lt;/h2&gt;
@@ -678,7 +678,7 @@ hex_grid &amp;lt;- HexPoints2SpatialPolygons(hex_points, dx = size)
 plot(study_area, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = TRUE)
 plot(hex_points, col = &amp;quot;black&amp;quot;, pch = 20, cex = 0.5, add = T)
 plot(hex_grid, border = &amp;quot;orange&amp;quot;, add = T)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/hex-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/hex-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;A few issues arise with this simple method:&lt;/p&gt;
 &lt;ol style=&#34;list-style-type: decimal&#34;&gt;
 &lt;li&gt;&lt;code&gt;spsample&lt;/code&gt; generates a different grid of points each time it’s called because the grid offset is chosen randomly by default. This can be fixed by setting the offset parameter explicitly with &lt;code&gt;offset = c(0, 0)&lt;/code&gt;.&lt;/li&gt;
@@ -728,7 +728,7 @@ hex_grid &amp;lt;- make_grid(study_area_utm, cell_area = 625, clip = TRUE)
 plot(study_area_utm, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = FALSE)
 plot(hex_grid, border = &amp;quot;orange&amp;quot;, add = TRUE)
 box()&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/nice-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/nice-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;square-grid&#34; class=&#34;section level3&#34;&gt;
 &lt;h3&gt;Square grid&lt;/h3&gt;
@@ -737,7 +737,7 @@ box()&lt;/code&gt;&lt;/pre&gt;
 r &amp;lt;- rasterize(study_area_utm, r, field = 1)
 plot(r, col = &amp;quot;grey50&amp;quot;, axes = FALSE, legend = FALSE, bty=&amp;quot;n&amp;quot;, box=FALSE)
 plot(study_area_utm, add = TRUE)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/raster-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/raster-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;In addition to the raster formats defined in the &lt;code&gt;raster&lt;/code&gt; package, the &lt;code&gt;sp&lt;/code&gt; package offers several options for square grids. The class &lt;code&gt;SpatialPixels&lt;/code&gt; is used for partial grids (i.e. not every cell included) and stores the coordinates of all included cell centers. &lt;code&gt;SpatialGrid&lt;/code&gt; objects store full grids and do not store coordinates explicitly. Underlying both classes is the &lt;code&gt;GridTopology&lt;/code&gt; class, which stores the grid template (origin, cell size, and dimensions). I never use these classes since the &lt;code&gt;raster&lt;/code&gt; classes and methods are more intuitive and efficient.&lt;/p&gt;
 &lt;p&gt;The final option from the &lt;code&gt;sp&lt;/code&gt; package is simply to store a square grid as polygons (&lt;code&gt;SpatialPolygons&lt;/code&gt; object), just as I did with the hexagonal grids above. In this case, I find the easiest way to define a grid of square polygons is to start with an empty &lt;code&gt;RasterLayer&lt;/code&gt; object, coerce it to &lt;code&gt;SpatialPolygons&lt;/code&gt;, and clip it as necessary. I incorporate this into the above grid generation function, which now creates hexagonal &lt;em&gt;or&lt;/em&gt; square grids as desired.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;make_grid &amp;lt;- function(x, type, cell_width, cell_area, clip = FALSE) {
@@ -801,7 +801,7 @@ sq_grid_c &amp;lt;- make_grid(study_area_utm, type = &amp;quot;square&amp;quot;,
 plot(study_area_utm, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = FALSE)
 plot(sq_grid_c, border = &amp;quot;orange&amp;quot;, add = TRUE)
 box()&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/square-polys-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/square-polys-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;div id=&#34;working-with-grids&#34; class=&#34;section level2&#34;&gt;
@@ -870,7 +870,7 @@ spplot(point_density, bird_families,
        par.settings = list(
          strip.background = list(col = &amp;quot;grey40&amp;quot;))
        )&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/point-density-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/point-density-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;I’ve used &lt;code&gt;spplot()&lt;/code&gt; here, and chosen to use a logarithmic scale, which means a big mess of legend parameters. Unfortunately, the data aren’t all that interesting, though I think the maps are pretty!&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;polygon-coverage&#34; class=&#34;section level3&#34;&gt;
@@ -916,7 +916,7 @@ p2 &amp;lt;- spplot(hex_cover, &amp;quot;pct_cover&amp;quot;, col = &amp;quot;wh
          axis.line = list(col =  &amp;#39;black&amp;#39;))
        )
 grid.arrange(p1, p2, ncol = 2, top = &amp;quot;Ecuador: Coverage by Pastaza State&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/cover-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/cover-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;Again, these data are not very interesting, but the example is illustrative.&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;raster-aggregation&#34; class=&#34;section level3&#34;&gt;
@@ -947,7 +947,7 @@ p2 &amp;lt;- spplot(hex_srtm,
              )
       )
 grid.arrange(p1, p2, ncol = 2, top = &amp;quot;Ecuador SRTM Elevation (m)&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/extract-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/extract-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;The raster package makes this aggregation task extremely easy, just a single line of code! I’ve also used &lt;code&gt;levelplot()&lt;/code&gt; from &lt;code&gt;rasterVis&lt;/code&gt;, which provides a nice system for mapping raster data.&lt;/p&gt;
 &lt;div class=&#34;footnotes&#34;&gt;
 &lt;p&gt;
@@ -974,9 +974,9 @@ grid.arrange(p1, p2, ncol = 2, top = &amp;quot;Ecuador SRTM Elevation (m)&amp;qu
     
     <item>
       <title>An example journal article</title>
-      <link>https://strimas.com/publication/journal-article/</link>
+      <link>/publication/journal-article/</link>
       <pubDate>Tue, 01 Sep 2015 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/publication/journal-article/</guid>
+      <guid>/publication/journal-article/</guid>
       <description>&lt;div class=&#34;alert alert-note&#34;&gt;
   &lt;div&gt;
     Click the &lt;em&gt;Cite&lt;/em&gt; button above to demo the feature to enable visitors to import publication metadata into their reference management software.
@@ -994,9 +994,9 @@ grid.arrange(p1, p2, ncol = 2, top = &amp;quot;Ecuador SRTM Elevation (m)&amp;qu
     
     <item>
       <title>An example conference paper</title>
-      <link>https://strimas.com/publication/conference-paper/</link>
+      <link>/publication/conference-paper/</link>
       <pubDate>Mon, 01 Jul 2013 00:00:00 +0000</pubDate>
-      <guid>https://strimas.com/publication/conference-paper/</guid>
+      <guid>/publication/conference-paper/</guid>
       <description>&lt;div class=&#34;alert alert-note&#34;&gt;
   &lt;div&gt;
     Click the &lt;em&gt;Cite&lt;/em&gt; button above to demo the feature to enable visitors to import publication metadata into their reference management software.
