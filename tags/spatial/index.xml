@@ -2,21 +2,21 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Spatial | Matt Strimas-Mackey</title>
-    <link>/tags/spatial/</link>
-      <atom:link href="/tags/spatial/index.xml" rel="self" type="application/rss+xml" />
+    <link>https://strimas.com/tags/spatial/</link>
+      <atom:link href="https://strimas.com/tags/spatial/index.xml" rel="self" type="application/rss+xml" />
     <description>Spatial</description>
     <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Fri, 20 Mar 2020 00:00:00 +0000</lastBuildDate>
     <image>
       <url>img/map[gravatar:%!s(bool=false) shape:circle]</url>
       <title>Spatial</title>
-      <link>/tags/spatial/</link>
+      <link>https://strimas.com/tags/spatial/</link>
     </image>
     
     <item>
       <title>Processing Large Rasters in R</title>
-      <link>/post/processing-large-rasters-in-r/</link>
+      <link>https://strimas.com/post/processing-large-rasters-in-r/</link>
       <pubDate>Fri, 20 Mar 2020 00:00:00 +0000</pubDate>
-      <guid>/post/processing-large-rasters-in-r/</guid>
+      <guid>https://strimas.com/post/processing-large-rasters-in-r/</guid>
       <description>
 
 
@@ -45,7 +45,7 @@ levelplot(r,
           scales = list(draw = FALSE),
           names.attr = paste(&amp;quot;Band&amp;quot;, seq_len(nlayers(r))),
           maxpixels = 1e6)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/post/2020-03-20-processing-large-rasters-in-r/index_files/figure-html/read-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2020-03-20-processing-large-rasters-in-r/index_files/figure-html/read-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;We can calculate the total number of values this raster can store and the associated memory requirements assuming 8 bytes per cell value. To calculate the actual memory used, we can override the default &lt;code&gt;raster&lt;/code&gt; behavior and read the contents of the file into R using &lt;code&gt;readAll()&lt;/code&gt;.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;n_values &amp;lt;- ncell(r) * nlayers(r)
 # memory in mb
@@ -66,14 +66,14 @@ mem_act &amp;lt;- as.integer(object.size(readAll(r))) / 2^20
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;a &amp;lt;- array(runif(27), dim = c(3, 3, 3))
 apply(a, 1:2, mean)
 #&amp;gt;       [,1]  [,2]  [,3]
-#&amp;gt; [1,] 0.236 0.602 0.570
-#&amp;gt; [2,] 0.452 0.412 0.588
-#&amp;gt; [3,] 0.561 0.598 0.545&lt;/code&gt;&lt;/pre&gt;
+#&amp;gt; [1,] 0.598 0.545 0.484
+#&amp;gt; [2,] 0.570 0.275 0.460
+#&amp;gt; [3,] 0.588 0.618 0.545&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;But what &lt;code&gt;raster&lt;/code&gt; is doing in &lt;code&gt;calc()&lt;/code&gt; is a little different and depends on the memory requirements of the calculation. We can use the function &lt;code&gt;canProccessInMemory()&lt;/code&gt; to test whether a &lt;code&gt;Raster*&lt;/code&gt; object can be loaded into memory for processing or not. We’ll use &lt;code&gt;verbose = TRUE&lt;/code&gt; to get some additional information.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;canProcessInMemory(r, verbose = TRUE)
 #&amp;gt; memory stats in GB
-#&amp;gt; mem available: 2.92
-#&amp;gt;         60%  : 1.75
+#&amp;gt; mem available: 1.31
+#&amp;gt;         60%  : 0.79
 #&amp;gt; mem needed   : 0.27
 #&amp;gt; max allowed  : 4.66  (if available)
 #&amp;gt; [1] TRUE&lt;/code&gt;&lt;/pre&gt;
@@ -91,30 +91,30 @@ apply(a, 1:2, mean)
 #&amp;gt;   &amp;lt;dbl&amp;gt; &amp;lt;lgl&amp;gt;         
 #&amp;gt; 1     1 TRUE          
 #&amp;gt; 2    10 TRUE          
-#&amp;gt; 3    20 TRUE          
+#&amp;gt; 3    20 FALSE         
 #&amp;gt; 4    30 FALSE         
 #&amp;gt; 5    40 FALSE         
 #&amp;gt; 6    50 FALSE         
 #&amp;gt; 7    60 FALSE&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;So, even though I called this a “large” raster, R can still handle processing it in memory until we get to requiring a fairly large number of copies, at which time, the raster will switch to being processed in blocks. For reason I don’t fully understand, the &lt;a href=&#34;https://github.com/rspatial/raster/blob/master/R/calc.R&#34;&gt;source code of the &lt;code&gt;calc()&lt;/code&gt; function&lt;/a&gt; suggests that it’s using &lt;code&gt;n = 2 * (nlayers(r) + 1)&lt;/code&gt;, which is 20, so &lt;code&gt;calc()&lt;/code&gt; is processing this raster in memory on my system. Indeed, we can confirm that the result of this calculation are stored in a memory with &lt;code&gt;inMemory()&lt;/code&gt;.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;inMemory(r_mean)
-#&amp;gt; [1] TRUE&lt;/code&gt;&lt;/pre&gt;
+#&amp;gt; [1] FALSE&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;What’s the point of going to all this trouble? If a raster can be processed in blocks to reduce memory usage, why not do it all the time? The issue is that processing in memory is much faster than processing in blocks and having to write to a file. We can see this by forcing &lt;code&gt;calc()&lt;/code&gt; to process on disk in blocks by setting &lt;code&gt;rasterOptions(todisk = TRUE)&lt;/code&gt;.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# in memory
 rasterOptions(todisk = FALSE)
 t_inmem &amp;lt;- system.time(calc(r, mean, na.rm = TRUE))
 print(t_inmem)
 #&amp;gt;    user  system elapsed 
-#&amp;gt;   5.935   0.197   6.187
+#&amp;gt;   5.546   0.352   5.913
 
 # on disk
 rasterOptions(todisk = TRUE)
 t_ondisk &amp;lt;- system.time(calc(r, mean, na.rm = TRUE))
 print(t_ondisk)
 #&amp;gt;    user  system elapsed 
-#&amp;gt;   5.802   0.494   6.381
+#&amp;gt;   5.472   0.349   5.850
 rasterOptions(todisk = FALSE)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;So, we see a 3.1% increase in efficiency by processing in memory. The &lt;code&gt;profmem&lt;/code&gt; package can gives us some information on the different amounts of memory used for the two approaches. Specifically, we can estimate the maximum amount of memory used at any one time by &lt;code&gt;calc()&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;So, we see a -1.1% increase in efficiency by processing in memory. The &lt;code&gt;profmem&lt;/code&gt; package can gives us some information on the different amounts of memory used for the two approaches. Specifically, we can estimate the maximum amount of memory used at any one time by &lt;code&gt;calc()&lt;/code&gt;.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# in memory
 rasterOptions(todisk = FALSE)
 m_inmem &amp;lt;- max(profmem(calc(r, mean, na.rm = TRUE))$bytes, na.rm = TRUE)
@@ -123,7 +123,7 @@ m_inmem &amp;lt;- max(profmem(calc(r, mean, na.rm = TRUE))$bytes, na.rm = TRUE)
 rasterOptions(todisk = TRUE)
 m_ondisk &amp;lt;- max(profmem(calc(r, mean, na.rm = TRUE))$bytes, na.rm = TRUE)
 rasterOptions(todisk = FALSE)
-#&amp;gt; [1] &amp;quot;In memory (MB):  69&amp;quot;
+#&amp;gt; [1] &amp;quot;In memory (MB):  17&amp;quot;
 #&amp;gt; [1] &amp;quot;On disk (MB):  17&amp;quot;&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;So, it’s clear that different ways of processing &lt;code&gt;Raster*&lt;/code&gt; objects affects both the processing time and resource use.&lt;/p&gt;
 &lt;/div&gt;
@@ -139,7 +139,7 @@ rasterOptions(todisk = FALSE)
 #&amp;gt; chunksize     : 1e+08 
 #&amp;gt; maxmemory     : 5e+09 
 #&amp;gt; memfrac       : 0.6 
-#&amp;gt; tmpdir        : /var/folders/mg/qh40qmqd7376xn8qxd6hm5lwjyy0h2/T//RtmpcZdoF6/raster// 
+#&amp;gt; tmpdir        : /var/folders/mg/qh40qmqd7376xn8qxd6hm5lwjyy0h2/T//RtmpAGlH0l/raster// 
 #&amp;gt; tmptime       : 168 
 #&amp;gt; setfileext    : TRUE 
 #&amp;gt; tolerance     : 0.1 
@@ -166,7 +166,7 @@ t_smallchunks &amp;lt;- system.time(calc(r, mean, na.rm = TRUE))
 # undo the hack
 assignInNamespace(&amp;quot;.chunk&amp;quot;, cs_orig, ns = &amp;quot;raster&amp;quot;)
 rasterOptions(default = TRUE)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;Processing in smaller chunks resulted in a 64.8% decrease in efficiency compared to the default chunk size. All this suggests to me that, when dealing with large rasters, it makes sense to increase &lt;code&gt;maxmemory&lt;/code&gt; as much as feasible given the memory available on your system; the default value of ~ 1 GB is quite small for a modern computer. Then, once you get to a point where the raster has to be processed in blocks, increase &lt;code&gt;chunksize&lt;/code&gt; to take advantage of as much memory as you have available.&lt;/p&gt;
+&lt;p&gt;Processing in smaller chunks resulted in a 50.5% decrease in efficiency compared to the default chunk size. All this suggests to me that, when dealing with large rasters, it makes sense to increase &lt;code&gt;maxmemory&lt;/code&gt; as much as feasible given the memory available on your system; the default value of ~ 1 GB is quite small for a modern computer. Then, once you get to a point where the raster has to be processed in blocks, increase &lt;code&gt;chunksize&lt;/code&gt; to take advantage of as much memory as you have available.&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;processing-in-blocks&#34; class=&#34;section level2&#34;&gt;
 &lt;h2&gt;Processing in blocks&lt;/h2&gt;
@@ -223,7 +223,7 @@ r_out &amp;lt;- writeStop(r_out)
 r_in &amp;lt;- readStop(r_in)&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;That’s it, not particularly complicated! Let’s make sure it worked by comparing to the results from &lt;code&gt;calc()&lt;/code&gt;.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;cellStats(abs(r_mean- r_out), max, na.rm = TRUE)
-#&amp;gt; [1] 2.98e-08&lt;/code&gt;&lt;/pre&gt;
+#&amp;gt; [1] 0&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;Everything looks good, the results are identical! Hopefully, this minimal example is a good template if you want to build your own raster processing functions.&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;parallel-processing&#34; class=&#34;section level2&#34;&gt;
@@ -240,11 +240,11 @@ endCluster()
 # time for parallel calc
 t_parallel[3]
 #&amp;gt; elapsed 
-#&amp;gt;    12.7
+#&amp;gt;    10.6
 # time for sequential calc
 t_ondisk[3]
 #&amp;gt; elapsed 
-#&amp;gt;    6.38&lt;/code&gt;&lt;/pre&gt;
+#&amp;gt;    5.85&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;Hmmm, there’s something odd going on here, it’s taking longer for the parallel version than the sequential version. I suspect I’ve messed something up in the parallel implementation. Let me know if you know what I’ve done wrong, perhaps it’s a topic for another post.&lt;/p&gt;
 &lt;/div&gt;
 </description>
@@ -252,9 +252,9 @@ t_ondisk[3]
     
     <item>
       <title>Fishnets and Honeycomb: Square vs. Hexagonal Spatial Grids</title>
-      <link>/post/hexagonal-grids/</link>
+      <link>https://strimas.com/post/hexagonal-grids/</link>
       <pubDate>Thu, 14 Jan 2016 00:00:00 +0000</pubDate>
-      <guid>/post/hexagonal-grids/</guid>
+      <guid>https://strimas.com/post/hexagonal-grids/</guid>
       <description>
 
 
@@ -316,7 +316,7 @@ study_area &amp;lt;- sapply(study_area@polygons, slot, &amp;quot;area&amp;quot;)
   study_area[.]
 plot(study_area, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = TRUE, cex = 20)
 text(81.5, 9.5, &amp;quot;Study Area:\nSri Lanka&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/study-region-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/study-region-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;creating-grids&#34; class=&#34;section level2&#34;&gt;
 &lt;h2&gt;Creating grids&lt;/h2&gt;
@@ -329,7 +329,7 @@ hex_grid &amp;lt;- HexPoints2SpatialPolygons(hex_points, dx = size)
 plot(study_area, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = TRUE)
 plot(hex_points, col = &amp;quot;black&amp;quot;, pch = 20, cex = 0.5, add = T)
 plot(hex_grid, border = &amp;quot;orange&amp;quot;, add = T)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/hex-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/hex-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;A few issues arise with this simple method:&lt;/p&gt;
 &lt;ol style=&#34;list-style-type: decimal&#34;&gt;
 &lt;li&gt;&lt;code&gt;spsample&lt;/code&gt; generates a different grid of points each time it’s called because the grid offset is chosen randomly by default. This can be fixed by setting the offset parameter explicitly with &lt;code&gt;offset = c(0, 0)&lt;/code&gt;.&lt;/li&gt;
@@ -379,7 +379,7 @@ hex_grid &amp;lt;- make_grid(study_area_utm, cell_area = 625, clip = TRUE)
 plot(study_area_utm, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = FALSE)
 plot(hex_grid, border = &amp;quot;orange&amp;quot;, add = TRUE)
 box()&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/nice-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/nice-grid-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;square-grid&#34; class=&#34;section level3&#34;&gt;
 &lt;h3&gt;Square grid&lt;/h3&gt;
@@ -388,7 +388,7 @@ box()&lt;/code&gt;&lt;/pre&gt;
 r &amp;lt;- rasterize(study_area_utm, r, field = 1)
 plot(r, col = &amp;quot;grey50&amp;quot;, axes = FALSE, legend = FALSE, bty=&amp;quot;n&amp;quot;, box=FALSE)
 plot(study_area_utm, add = TRUE)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/raster-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/raster-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;In addition to the raster formats defined in the &lt;code&gt;raster&lt;/code&gt; package, the &lt;code&gt;sp&lt;/code&gt; package offers several options for square grids. The class &lt;code&gt;SpatialPixels&lt;/code&gt; is used for partial grids (i.e. not every cell included) and stores the coordinates of all included cell centers. &lt;code&gt;SpatialGrid&lt;/code&gt; objects store full grids and do not store coordinates explicitly. Underlying both classes is the &lt;code&gt;GridTopology&lt;/code&gt; class, which stores the grid template (origin, cell size, and dimensions). I never use these classes since the &lt;code&gt;raster&lt;/code&gt; classes and methods are more intuitive and efficient.&lt;/p&gt;
 &lt;p&gt;The final option from the &lt;code&gt;sp&lt;/code&gt; package is simply to store a square grid as polygons (&lt;code&gt;SpatialPolygons&lt;/code&gt; object), just as I did with the hexagonal grids above. In this case, I find the easiest way to define a grid of square polygons is to start with an empty &lt;code&gt;RasterLayer&lt;/code&gt; object, coerce it to &lt;code&gt;SpatialPolygons&lt;/code&gt;, and clip it as necessary. I incorporate this into the above grid generation function, which now creates hexagonal &lt;em&gt;or&lt;/em&gt; square grids as desired.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;make_grid &amp;lt;- function(x, type, cell_width, cell_area, clip = FALSE) {
@@ -452,7 +452,7 @@ sq_grid_c &amp;lt;- make_grid(study_area_utm, type = &amp;quot;square&amp;quot;,
 plot(study_area_utm, col = &amp;quot;grey50&amp;quot;, bg = &amp;quot;light blue&amp;quot;, axes = FALSE)
 plot(sq_grid_c, border = &amp;quot;orange&amp;quot;, add = TRUE)
 box()&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/square-polys-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/square-polys-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;div id=&#34;working-with-grids&#34; class=&#34;section level2&#34;&gt;
@@ -521,7 +521,7 @@ spplot(point_density, bird_families,
        par.settings = list(
          strip.background = list(col = &amp;quot;grey40&amp;quot;))
        )&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/point-density-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/point-density-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;I’ve used &lt;code&gt;spplot()&lt;/code&gt; here, and chosen to use a logarithmic scale, which means a big mess of legend parameters. Unfortunately, the data aren’t all that interesting, though I think the maps are pretty!&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;polygon-coverage&#34; class=&#34;section level3&#34;&gt;
@@ -567,7 +567,7 @@ p2 &amp;lt;- spplot(hex_cover, &amp;quot;pct_cover&amp;quot;, col = &amp;quot;wh
          axis.line = list(col =  &amp;#39;black&amp;#39;))
        )
 grid.arrange(p1, p2, ncol = 2, top = &amp;quot;Ecuador: Coverage by Pastaza State&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/cover-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/cover-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;Again, these data are not very interesting, but the example is illustrative.&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;raster-aggregation&#34; class=&#34;section level3&#34;&gt;
@@ -598,7 +598,7 @@ p2 &amp;lt;- spplot(hex_srtm,
              )
       )
 grid.arrange(p1, p2, ncol = 2, top = &amp;quot;Ecuador SRTM Elevation (m)&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/post/2016-01-14-hexagonal-grids/index_files/figure-html/extract-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://strimas.com/post/2016-01-14-hexagonal-grids/index_files/figure-html/extract-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
 &lt;p&gt;The raster package makes this aggregation task extremely easy, just a single line of code! I’ve also used &lt;code&gt;levelplot()&lt;/code&gt; from &lt;code&gt;rasterVis&lt;/code&gt;, which provides a nice system for mapping raster data.&lt;/p&gt;
 &lt;div class=&#34;footnotes&#34;&gt;
 &lt;p&gt;
