@@ -1,1 +1,1 @@
-# mstrimas.github.io
+Repository for personal website build with blogdown using the Hugo Academic theme. This is the compiled website, the source is at https://github.com/mstrimas/website.

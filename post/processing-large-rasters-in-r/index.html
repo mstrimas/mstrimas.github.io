@@ -545,26 +545,18 @@
 
 
 
-
-
-
-
-
-
-
+  
 
   
   
-    
   
-
-
 <div class="article-container pt-3">
   <h1>Processing Large Rasters in R</h1>
 
   
 
   
+    
 
 
 <div class="article-metadata">
@@ -602,29 +594,22 @@
 
 </div>
 
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-</div>
-
-
-<div class="article-header article-container featured-image-wrapper mt-4 mb-4" style="max-width: 720px; max-height: 377px;">
-  <div style="position: relative">
-    <img src="/post/processing-large-rasters-in-r/featured_hu137f3a953b33183af94b8cc2d61084ba_230755_720x0_resize_lanczos_2.png" alt="" class="featured-image">
     
-  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
 </div>
 
 
@@ -670,8 +655,8 @@ mem_act &lt;- as.integer(object.size(readAll(r))) / 2^20
 #&gt; [1] &quot;Estimated size (MB):  68.7&quot;
 #&gt; [1] &quot;Memory usage (MB):  68.8&quot;
 #&gt;            used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
-#&gt; Ncells  1925151  103   3.67e+06  196         NA 2.49e+06  133
-#&gt; Vcells 45371747  346   1.26e+08  963     102400 2.28e+08 1741</code></pre>
+#&gt; Ncells  2282143  122   4.15e+06  222         NA 3.83e+06  204
+#&gt; Vcells 45906401  350   1.47e+08 1118     102400 2.29e+08 1745</code></pre>
 <p>So we were fairly close in our estimates, looks like it takes a little under 70 Mb of memory to hold this object in the R session.</p>
 <div id="processing-rasters" class="section level2">
 <h2>Processing rasters</h2>
@@ -687,8 +672,8 @@ apply(a, 1:2, mean)
 <p>But what <code>raster</code> is doing in <code>calc()</code> is a little different and depends on the memory requirements of the calculation. We can use the function <code>canProccessInMemory()</code> to test whether a <code>Raster*</code> object can be loaded into memory for processing or not. We’ll use <code>verbose = TRUE</code> to get some additional information.</p>
 <pre class="r"><code>canProcessInMemory(r, verbose = TRUE)
 #&gt; memory stats in GB
-#&gt; mem available: 2.22
-#&gt;         60%  : 1.33
+#&gt; mem available: 2.92
+#&gt;         60%  : 1.75
 #&gt; mem needed   : 0.27
 #&gt; max allowed  : 4.66  (if available)
 #&gt; [1] TRUE</code></pre>
@@ -706,7 +691,7 @@ apply(a, 1:2, mean)
 #&gt;   &lt;dbl&gt; &lt;lgl&gt;         
 #&gt; 1     1 TRUE          
 #&gt; 2    10 TRUE          
-#&gt; 3    20 FALSE         
+#&gt; 3    20 TRUE          
 #&gt; 4    30 FALSE         
 #&gt; 5    40 FALSE         
 #&gt; 6    50 FALSE         
@@ -720,16 +705,16 @@ rasterOptions(todisk = FALSE)
 t_inmem &lt;- system.time(calc(r, mean, na.rm = TRUE))
 print(t_inmem)
 #&gt;    user  system elapsed 
-#&gt;   4.664   0.159   4.866
+#&gt;   5.935   0.197   6.187
 
 # on disk
 rasterOptions(todisk = TRUE)
 t_ondisk &lt;- system.time(calc(r, mean, na.rm = TRUE))
 print(t_ondisk)
 #&gt;    user  system elapsed 
-#&gt;   4.717   0.408   5.152
+#&gt;   5.802   0.494   6.381
 rasterOptions(todisk = FALSE)</code></pre>
-<p>So, we see a 5.9% increase in efficiency by processing in memory. The <code>profmem</code> package can gives us some information on the different amounts of memory used for the two approaches. Specifically, we can estimate the maximum amount of memory used at any one time by <code>calc()</code>.</p>
+<p>So, we see a 3.1% increase in efficiency by processing in memory. The <code>profmem</code> package can gives us some information on the different amounts of memory used for the two approaches. Specifically, we can estimate the maximum amount of memory used at any one time by <code>calc()</code>.</p>
 <pre class="r"><code># in memory
 rasterOptions(todisk = FALSE)
 m_inmem &lt;- max(profmem(calc(r, mean, na.rm = TRUE))$bytes, na.rm = TRUE)
@@ -754,7 +739,7 @@ rasterOptions(todisk = FALSE)
 #&gt; chunksize     : 1e+08 
 #&gt; maxmemory     : 5e+09 
 #&gt; memfrac       : 0.6 
-#&gt; tmpdir        : /var/folders/mg/qh40qmqd7376xn8qxd6hm5lwjyy0h2/T//RtmpSEvRmk/raster// 
+#&gt; tmpdir        : /var/folders/mg/qh40qmqd7376xn8qxd6hm5lwjyy0h2/T//RtmpcZdoF6/raster// 
 #&gt; tmptime       : 168 
 #&gt; setfileext    : TRUE 
 #&gt; tolerance     : 0.1 
@@ -781,7 +766,7 @@ t_smallchunks &lt;- system.time(calc(r, mean, na.rm = TRUE))
 # undo the hack
 assignInNamespace(&quot;.chunk&quot;, cs_orig, ns = &quot;raster&quot;)
 rasterOptions(default = TRUE)</code></pre>
-<p>Processing in smaller chunks resulted in a 67.3% decrease in efficiency compared to the default chunk size. All this suggests to me that, when dealing with large rasters, it makes sense to increase <code>maxmemory</code> as much as feasible given the memory available on your system; the default value of ~ 1 GB is quite small for a modern computer. Then, once you get to a point where the raster has to be processed in blocks, increase <code>chunksize</code> to take advantage of as much memory as you have available.</p>
+<p>Processing in smaller chunks resulted in a 64.8% decrease in efficiency compared to the default chunk size. All this suggests to me that, when dealing with large rasters, it makes sense to increase <code>maxmemory</code> as much as feasible given the memory available on your system; the default value of ~ 1 GB is quite small for a modern computer. Then, once you get to a point where the raster has to be processed in blocks, increase <code>chunksize</code> to take advantage of as much memory as you have available.</p>
 </div>
 <div id="processing-in-blocks" class="section level2">
 <h2>Processing in blocks</h2>
@@ -855,11 +840,11 @@ endCluster()
 # time for parallel calc
 t_parallel[3]
 #&gt; elapsed 
-#&gt;    5.12
+#&gt;    12.7
 # time for sequential calc
 t_ondisk[3]
 #&gt; elapsed 
-#&gt;    5.15</code></pre>
+#&gt;    6.38</code></pre>
 <p>Hmmm, there’s something odd going on here, it’s taking longer for the parallel version than the sequential version. I suspect I’ve messed something up in the parallel implementation. Let me know if you know what I’ve done wrong, perhaps it’s a topic for another post.</p>
 </div>
 
