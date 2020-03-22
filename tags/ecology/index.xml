@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Ecology | </title>
+    <title>Ecology | Matt Strimas-Mackey</title>
     <link>/tags/ecology/</link>
       <atom:link href="/tags/ecology/index.xml" rel="self" type="application/rss+xml" />
     <description>Ecology</description>
     <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Fri, 13 Oct 2017 00:00:00 +0000</lastBuildDate>
     <image>
-      <url>img/map[gravatar:%!s(bool=false) shape:circle]</url>
+      <url>/images/logo_hua78233de1999edf2452006617b3e6b15_560350_300x300_fit_lanczos_2.png</url>
       <title>Ecology</title>
       <link>/tags/ecology/</link>
     </image>

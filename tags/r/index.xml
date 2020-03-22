@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>R | </title>
+    <title>R | Matt Strimas-Mackey</title>
     <link>/tags/r/</link>
       <atom:link href="/tags/r/index.xml" rel="self" type="application/rss+xml" />
     <description>R</description>
     <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Fri, 20 Mar 2020 00:00:00 +0000</lastBuildDate>
     <image>
-      <url>img/map[gravatar:%!s(bool=false) shape:circle]</url>
+      <url>/images/logo_hua78233de1999edf2452006617b3e6b15_560350_300x300_fit_lanczos_2.png</url>
       <title>R</title>
       <link>/tags/r/</link>
     </image>
