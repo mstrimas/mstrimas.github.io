@@ -31,7 +31,7 @@
   <meta name="description" content="Investigating how raster data are processed in R to improve the efficiency of processing large raster files.">
 
   
-  <link rel="alternate" hreflang="en-us" href="/post/processing-large-rasters-in-r/">
+  <link rel="alternate" hreflang="en-us" href="https://strimas.com/post/processing-large-rasters-in-r/">
 
   
 
@@ -254,7 +254,7 @@
   <link rel="icon" type="image/png" href="/images/icon_hua78233de1999edf2452006617b3e6b15_560350_32x32_fill_lanczos_center_2.png">
   <link rel="apple-touch-icon" type="image/png" href="/images/icon_hua78233de1999edf2452006617b3e6b15_560350_192x192_fill_lanczos_center_2.png">
 
-  <link rel="canonical" href="/post/processing-large-rasters-in-r/">
+  <link rel="canonical" href="https://strimas.com/post/processing-large-rasters-in-r/">
 
   
   
@@ -270,10 +270,10 @@
   <meta property="twitter:creator" content="@StrimasMackey">
   
   <meta property="og:site_name" content="Matt Strimas-Mackey">
-  <meta property="og:url" content="/post/processing-large-rasters-in-r/">
+  <meta property="og:url" content="https://strimas.com/post/processing-large-rasters-in-r/">
   <meta property="og:title" content="Processing Large Rasters in R | Matt Strimas-Mackey">
-  <meta property="og:description" content="Investigating how raster data are processed in R to improve the efficiency of processing large raster files."><meta property="og:image" content="/post/processing-large-rasters-in-r/featured.png">
-  <meta property="twitter:image" content="/post/processing-large-rasters-in-r/featured.png"><meta property="og:locale" content="en-us">
+  <meta property="og:description" content="Investigating how raster data are processed in R to improve the efficiency of processing large raster files."><meta property="og:image" content="https://strimas.com/post/processing-large-rasters-in-r/featured.png">
+  <meta property="twitter:image" content="https://strimas.com/post/processing-large-rasters-in-r/featured.png"><meta property="og:locale" content="en-us">
   
     
       <meta property="article:published_time" content="2020-03-20T00:00:00&#43;00:00">
@@ -302,12 +302,12 @@
   "@type": "BlogPosting",
   "mainEntityOfPage": {
     "@type": "WebPage",
-    "@id": "/post/processing-large-rasters-in-r/"
+    "@id": "https://strimas.com/post/processing-large-rasters-in-r/"
   },
   "headline": "Processing Large Rasters in R",
   
   "image": [
-    "/post/processing-large-rasters-in-r/featured.png"
+    "https://strimas.com/post/processing-large-rasters-in-r/featured.png"
   ],
   
   "datePublished": "2020-03-20T00:00:00Z",
@@ -323,7 +323,7 @@
     "name": "Matt Strimas-Mackey",
     "logo": {
       "@type": "ImageObject",
-      "url": "/images/icon_hua78233de1999edf2452006617b3e6b15_560350_192x192_fill_lanczos_center_2.png"
+      "url": "https://strimas.com/images/icon_hua78233de1999edf2452006617b3e6b15_560350_192x192_fill_lanczos_center_2.png"
     }
   },
   "description": "Investigating how raster data are processed in R to improve the efficiency of processing large raster files."
@@ -672,8 +672,8 @@ apply(a, 1:2, mean)
 <p>But what <code>raster</code> is doing in <code>calc()</code> is a little different and depends on the memory requirements of the calculation. We can use the function <code>canProccessInMemory()</code> to test whether a <code>Raster*</code> object can be loaded into memory for processing or not. We’ll use <code>verbose = TRUE</code> to get some additional information.</p>
 <pre class="r"><code>canProcessInMemory(r, verbose = TRUE)
 #&gt; memory stats in GB
-#&gt; mem available: 1.31
-#&gt;         60%  : 0.79
+#&gt; mem available: 1.78
+#&gt;         60%  : 1.07
 #&gt; mem needed   : 0.27
 #&gt; max allowed  : 4.66  (if available)
 #&gt; [1] TRUE</code></pre>
@@ -705,16 +705,16 @@ rasterOptions(todisk = FALSE)
 t_inmem &lt;- system.time(calc(r, mean, na.rm = TRUE))
 print(t_inmem)
 #&gt;    user  system elapsed 
-#&gt;   5.546   0.352   5.913
+#&gt;   5.842   0.405   6.348
 
 # on disk
 rasterOptions(todisk = TRUE)
 t_ondisk &lt;- system.time(calc(r, mean, na.rm = TRUE))
 print(t_ondisk)
 #&gt;    user  system elapsed 
-#&gt;   5.472   0.349   5.850
+#&gt;   5.566   0.391   5.998
 rasterOptions(todisk = FALSE)</code></pre>
-<p>So, we see a -1.1% increase in efficiency by processing in memory. The <code>profmem</code> package can gives us some information on the different amounts of memory used for the two approaches. Specifically, we can estimate the maximum amount of memory used at any one time by <code>calc()</code>.</p>
+<p>So, we see a -5.5% increase in efficiency by processing in memory. The <code>profmem</code> package can gives us some information on the different amounts of memory used for the two approaches. Specifically, we can estimate the maximum amount of memory used at any one time by <code>calc()</code>.</p>
 <pre class="r"><code># in memory
 rasterOptions(todisk = FALSE)
 m_inmem &lt;- max(profmem(calc(r, mean, na.rm = TRUE))$bytes, na.rm = TRUE)
@@ -739,7 +739,7 @@ rasterOptions(todisk = FALSE)
 #&gt; chunksize     : 1e+08 
 #&gt; maxmemory     : 5e+09 
 #&gt; memfrac       : 0.6 
-#&gt; tmpdir        : /var/folders/mg/qh40qmqd7376xn8qxd6hm5lwjyy0h2/T//RtmpAGlH0l/raster// 
+#&gt; tmpdir        : /var/folders/mg/qh40qmqd7376xn8qxd6hm5lwjyy0h2/T//RtmpsJgyy5/raster// 
 #&gt; tmptime       : 168 
 #&gt; setfileext    : TRUE 
 #&gt; tolerance     : 0.1 
@@ -766,7 +766,7 @@ t_smallchunks &lt;- system.time(calc(r, mean, na.rm = TRUE))
 # undo the hack
 assignInNamespace(&quot;.chunk&quot;, cs_orig, ns = &quot;raster&quot;)
 rasterOptions(default = TRUE)</code></pre>
-<p>Processing in smaller chunks resulted in a 50.5% decrease in efficiency compared to the default chunk size. All this suggests to me that, when dealing with large rasters, it makes sense to increase <code>maxmemory</code> as much as feasible given the memory available on your system; the default value of ~ 1 GB is quite small for a modern computer. Then, once you get to a point where the raster has to be processed in blocks, increase <code>chunksize</code> to take advantage of as much memory as you have available.</p>
+<p>Processing in smaller chunks resulted in a 54.9% decrease in efficiency compared to the default chunk size. All this suggests to me that, when dealing with large rasters, it makes sense to increase <code>maxmemory</code> as much as feasible given the memory available on your system; the default value of ~ 1 GB is quite small for a modern computer. Then, once you get to a point where the raster has to be processed in blocks, increase <code>chunksize</code> to take advantage of as much memory as you have available.</p>
 </div>
 <div id="processing-in-blocks" class="section level2">
 <h2>Processing in blocks</h2>
@@ -840,11 +840,11 @@ endCluster()
 # time for parallel calc
 t_parallel[3]
 #&gt; elapsed 
-#&gt;    10.6
+#&gt;    11.5
 # time for sequential calc
 t_ondisk[3]
 #&gt; elapsed 
-#&gt;    5.85</code></pre>
+#&gt;       6</code></pre>
 <p>Hmmm, there’s something odd going on here, it’s taking longer for the parallel version than the sequential version. I suspect I’ve messed something up in the parallel implementation. Let me know if you know what I’ve done wrong, perhaps it’s a topic for another post.</p>
 </div>
 
@@ -896,7 +896,7 @@ t_ondisk[3]
     
 
     <div class="media-body">
-      <h5 class="card-title"><a href="/">Matt Strimas-Mackey</a></h5>
+      <h5 class="card-title"><a href="https://strimas.com/">Matt Strimas-Mackey</a></h5>
       <h6 class="card-subtitle">Data Scientist</h6>
       <p class="card-text">I am a data scientist at the Cornell Lab of Ornithology using data from the citizen science project eBird to inform bird research and conservation.</p>
       <ul class="network-icon" aria-hidden="true">
