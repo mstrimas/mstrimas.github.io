@@ -5,12 +5,143 @@
     <link>/tags/r/</link>
       <atom:link href="/tags/r/index.xml" rel="self" type="application/rss+xml" />
     <description>R</description>
-    <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Fri, 20 Mar 2020 00:00:00 +0000</lastBuildDate>
+    <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Tue, 24 Mar 2020 00:00:00 +0000</lastBuildDate>
     <image>
       <url>img/map[gravatar:%!s(bool=false) shape:circle]</url>
       <title>R</title>
       <link>/tags/r/</link>
     </image>
+    
+    <item>
+      <title>Taking Control of Block Processing of Rasters</title>
+      <link>/post/block-processing-rasters/</link>
+      <pubDate>Tue, 24 Mar 2020 00:00:00 +0000</pubDate>
+      <guid>/post/block-processing-rasters/</guid>
+      <description>
+
+
+&lt;p&gt;In &lt;a href=&#34;post/processing-large-rasters-in-r/&#34;&gt;my previous post&lt;/a&gt;, I tried to understand how &lt;code&gt;raster&lt;/code&gt; package functions like &lt;code&gt;calc()&lt;/code&gt; process raster data. The package does a good job of abstracting a lot of this detail away from users, data will be processed either on disk or in memory based on criteria related to the size of the raster, the available resources, and user-defined parameters. In addition, if processing is done on disk, the raster will be processed in blocks, the size of which is user controlled. In most cases, &lt;code&gt;raster&lt;/code&gt; makes sensible choices and the whole process works seamlessly for the user. However, I’ve found that, for large raster datasets, the specific details of &lt;em&gt;how&lt;/em&gt; a raster is processed in blocks can make a big difference in terms of computational efficient. Furthermore, with &lt;code&gt;raster&lt;/code&gt; it’s hard to know exactly what’s going on behind the scenes and the parameters that we can tune through &lt;code&gt;rasterOptions()&lt;/code&gt; don’t give me as much direct control over the processing as I’d like. In this post, I’m going to try taking lower level control of &lt;code&gt;raster&lt;/code&gt; processing and explore how choices about block size impact processing speed.&lt;/p&gt;
+&lt;p&gt;To demonstrate all this, I’m going to use some real data from the &lt;a href=&#34;https://ebird.org/science/status-and-trends/woothr/abundance-map&#34;&gt;eBird Status &amp;amp; Trends&lt;/a&gt;; this is a dataset that I work with on a daily basis in my job. The below code downloads weekly relative abundance for Wood Thrush at 3 km resolution across the entire western hemisphere, subsets the annual data to just the weeks of the breeding season (May 24 - September 7), then saves the results as a GeoTIFF.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(ebirdst)
+library(raster)
+library(tictoc)
+library(profmem)
+library(tidyverse)
+# download status and trends data
+abd &amp;lt;- get_species_path(&amp;quot;woothr&amp;quot;) %&amp;gt;% 
+  load_raster(&amp;quot;abundance&amp;quot;, .)
+# subset to the breeding season
+dts &amp;lt;- parse_raster_dates(abd)
+r &amp;lt;- abd[[which(dts &amp;gt;= as.Date(&amp;quot;2018-05-24&amp;quot;) &amp;amp; dts &amp;lt;= as.Date(&amp;quot;2018-09-07&amp;quot;))]]
+r &amp;lt;- writeRaster(r, &amp;quot;data/woothr.tif&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This is a big dataset, almost 40 million cells and 16 layers, which works out to be just under 5 GB when read into memory, assuming 8 bytes per cell.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;print(r)
+#&amp;gt; class      : RasterStack 
+#&amp;gt; dimensions : 5630, 7074, 39826620, 16  (nrow, ncol, ncell, nlayers)
+#&amp;gt; resolution : 2963, 2963  (x, y)
+#&amp;gt; extent     : -2e+07, 943785, -6673060, 1e+07  (xmin, xmax, ymin, ymax)
+#&amp;gt; crs        : +proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=m +no_defs 
+#&amp;gt; names      : woothr.1, woothr.2, woothr.3, woothr.4, woothr.5, woothr.6, woothr.7, woothr.8, woothr.9, woothr.10, woothr.11, woothr.12, woothr.13, woothr.14, woothr.15, ... 
+#&amp;gt; min values :        0,        0,        0,        0,        0,        0,        0,        0,        0,         0,         0,         0,         0,         0,         0, ... 
+#&amp;gt; max values :     4.86,     4.76,     4.59,     4.94,     5.68,     5.59,     5.32,     4.98,     4.62,      3.75,      2.84,      2.30,      2.36,      2.57,      2.93, ...
+# estimate size in gb
+8 * ncell(r) * nlayers(r) / 2^30
+#&amp;gt; [1] 4.75&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;What I want to do with this dataset, is simply average across the weeks to produce a single layer of breeding season abundance, which is what we use to generate the seasonal maps on the &lt;a href=&#34;https://ebird.org/science/status-and-trends/woothr/abundance-map-breeding&#34;&gt;Status and Trends website&lt;/a&gt;. As I showed in the previous post, that can be done with &lt;code&gt;calc()&lt;/code&gt;:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;r_mean &amp;lt;- calc(r, mean, na.rm = TRUE)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This took about 2 minutes to run on my laptop and, given the size, it must have been processed on disk in blocks rather than in memory. Recall that the block size is the number of rows that are read in and processed at a time. The catch is that it’s not clear what block size was used and if the automatically chosen block size was optimal. You can use &lt;code&gt;rasterOptions()&lt;/code&gt; to set &lt;code&gt;chunksize&lt;/code&gt; in bytes, which indirectly controls the number of rows per block. Throughout this post, I’ll use “block size” to refer to the number of rows per block and “chunk size” to refer to the user-defined maximum number of bytes available for each block. If you consult the &lt;a href=&#34;https://github.com/rspatial/raster/blob/master/R/calc.R&#34;&gt;source code for &lt;code&gt;calc()&lt;/code&gt;&lt;/a&gt; it’s possible to determine that this function splits rasters into blocks using &lt;code&gt;blockSize()&lt;/code&gt; with &lt;code&gt;n = 2 * (nlayers(r) + 1)&lt;/code&gt;, then you’d have to look at the &lt;a href=&#34;https://github.com/rspatial/raster/blob/master/R/blockSize.R&#34;&gt;source code for &lt;code&gt;blockSize()&lt;/code&gt;&lt;/a&gt; to determine that this is converted to the number of rows per blocks with &lt;code&gt;floor(chunksize / (8 * n * ncol(r)))&lt;/code&gt;. So, working through all this with the default chunk size used by raster (&lt;span class=&#34;math inline&#34;&gt;\(10^8\)&lt;/span&gt;), we get:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;n &amp;lt;- 2 * (nlayers(r) + 1)
+1e8 / (8 * n * ncol(r))
+#&amp;gt; [1] 52&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;In most cases, you’re probably best to just set &lt;code&gt;chunksize&lt;/code&gt; based on your system’s resources and leave the block size choice to &lt;code&gt;raster&lt;/code&gt;, but for sake of optimizing the processing of the Status &amp;amp; Trends data, I want to know exactly what block size is being used and, ideally, be able to control the block size directly rather than via the chunk size. With this is mind, I forked the &lt;a href=&#34;https://github.com/rspatial/raster/&#34;&gt;&lt;code&gt;raster&lt;/code&gt; GitHub repo&lt;/a&gt; and made some modifications.&lt;/p&gt;
+&lt;div id=&#34;modifying-the-raster-package&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Modifying the &lt;code&gt;raster&lt;/code&gt; package&lt;/h2&gt;
+&lt;p&gt;After &lt;a href=&#34;https://github.com/mstrimas/raster&#34;&gt;forking the &lt;code&gt;raster&lt;/code&gt; package repository&lt;/a&gt; I made the following changes:&lt;/p&gt;
+&lt;ol style=&#34;list-style-type: decimal&#34;&gt;
+&lt;li&gt;&lt;code&gt;calc()&lt;/code&gt; now displays the block size (i.e. number of rows) being used.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;calc(return_blocks = TRUE)&lt;/code&gt; will, instead of processing the raster object, just return the blocks that would have been used.&lt;/li&gt;
+&lt;li&gt;Added a new function, &lt;code&gt;summarize_raster()&lt;/code&gt;, that is a greatly simplified version of &lt;code&gt;calc()&lt;/code&gt;. It always process files on disk, will only calculate means and sums rather than a generic input function, always uses &lt;code&gt;na.rm = TRUE&lt;/code&gt;, and it takes either a &lt;code&gt;chunksize&lt;/code&gt; argument (in units of available GB of RAM) or an &lt;code&gt;n_rows&lt;/code&gt; argument that directly controls the number of rows per block.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;If you’re interested, the source code for the &lt;code&gt;summarize_raster()&lt;/code&gt; function is &lt;a href=&#34;https://github.com/mstrimas/raster/blob/master/R/summarize-raster.R&#34;&gt;here&lt;/a&gt;. It removes much of the functionality of &lt;code&gt;calc()&lt;/code&gt; but this comes with the benefit of being easier to figure out what’s going on inside the function. If you want to install this version of the &lt;code&gt;raster&lt;/code&gt; package you could do so with &lt;code&gt;remotes::install_packages(&#34;mstrimas/raster&#34;)&lt;/code&gt;, but beware I’ve modified the original package in a very sloppy way and &lt;strong&gt;you probably don’t want to overwrite the real &lt;code&gt;raster&lt;/code&gt; package with my hacked version.&lt;/strong&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;so-what-block-size-is-being-used&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;So, what block size &lt;em&gt;is&lt;/em&gt; being used?&lt;/h2&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;tic()
+r_mean_calc &amp;lt;- calc(r, mean, na.rm = TRUE)
+#&amp;gt; Using 111 blocks of 51 rows.
+toc()
+#&amp;gt; 122.612 sec elapsed&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;In this case, with the default chunk size of &lt;span class=&#34;math inline&#34;&gt;\(10^8 \approx 0.1 GB\)&lt;/span&gt;, &lt;code&gt;calc()&lt;/code&gt; processes this raster in 111 blocks of 51 rows each. We can use my custom &lt;code&gt;summarize_raster()&lt;/code&gt; function to do the same thing, but specify block size explicitly.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;tic()
+r_mean_summ &amp;lt;- summarize_raster(r, &amp;quot;mean&amp;quot;, n_rows = 51)
+#&amp;gt; Using 111 blocks of 51 rows.
+toc()
+#&amp;gt; 119.368 sec elapsed&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Turns out &lt;code&gt;summarize_raster()&lt;/code&gt; is slightly faster because I’ve slimmed it down and removed some additional checks and functionality. We can confirm that the two approaches produce the same results.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;cellStats(abs(r_mean_calc - r_mean_summ), max)
+#&amp;gt; [1] 0&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;run-time-vs.-block-size&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Run time vs. block size&lt;/h2&gt;
+&lt;p&gt;Ok, now everything’s in place, and we can examine how block size impacts processing time. Recall that block size is the number of rows that get read in, summarized, and output at each iteration of the processing. Let’s estimate run time for a range of blocks sizes, from 1 row to 5,630 rows, equivalent to processing the whole raster in memory. Note that I’m running this on my laptop, which has 16 GB of RAM, so I have more than enough resources to process this raster in memory, but I’m choosing to process it on disk for demonstration purposes. Since there could be variation in run time, I’ll summarize the raster 10 times for each block size.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# choose the values of n_rows to try
+n_rows &amp;lt;- 2^seq(0, ceiling(log2(nrow(r))))
+n_rows[length(n_rows)] &amp;lt;- nrow(r)
+
+# set up 10 repetitions of each n_rows value
+nrow_grid &amp;lt;- expand_grid(rep = 1:10, n_rows = n_rows)
+
+# summarize raster using each value of n_rows
+summarize_nrows &amp;lt;- function(x) {
+  # memory usage
+  m &amp;lt;- profmem({
+    # timer
+    t &amp;lt;- system.time({
+      r_mean &amp;lt;- summarize_raster(r, &amp;quot;mean&amp;quot;, n_rows = x)
+    })
+  })
+  return(tibble(elapsed = t[&amp;quot;elapsed&amp;quot;], max_mem = max(m$bytes, na.rm = TRUE)))
+}
+time_mem &amp;lt;- nrow_grid %&amp;gt;% 
+  mutate(results = map(n_rows, summarize_nrows)) %&amp;gt;% 
+  unnest(cols = results)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now let’s plot the elapsed time vs. block size curve. I’ll show both the raw data, consisting of 10 for each block size, and a smoothed function.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;ggplot(time_mem) +
+  aes(x = n_rows, y = elapsed / 60) +
+  geom_point(alpha = 0.25, size = 0.75) +
+  geom_smooth(method = &amp;quot;gam&amp;quot;) +
+  labs(x = &amp;quot;# of rows/block size (log2 scale)&amp;quot;, 
+       y = &amp;quot;Elapsed time (minutes)&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2020-03-22-block-processing-rasters/index_files/figure-html/vs-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;Interesting, it looks like there’s an exponential decrease in processing time as block size increases. This suggests a log-transformed x-axis would be worthwhile. I’m also going to show the default block size explicitly on the plot.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;ggplot(time_mem) +
+  aes(x = n_rows, y = elapsed / 60) +
+  geom_point(alpha = 0.25, size = 0.75) +
+  geom_smooth(method = &amp;quot;gam&amp;quot;) +
+  geom_vline(xintercept = 51,
+             color = &amp;quot;orange&amp;quot;,
+             size = 1.2,
+             linetype = &amp;quot;dashed&amp;quot;) +
+  scale_x_continuous(trans = &amp;quot;log2&amp;quot;) +
+  labs(x = &amp;quot;# of rows/block size (log2 scale)&amp;quot;, 
+       y = &amp;quot;Elapsed time (minutes)&amp;quot;,
+       title = &amp;quot;Processing time decreases exponentially with block size&amp;quot;,
+       subtitle = &amp;quot;Default block size (51 rows) shown in oranges&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2020-03-22-block-processing-rasters/index_files/figure-html/vs-logplot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;Looks like the decrease is exponential. The default block size using &lt;code&gt;chunksize = 1e8&lt;/code&gt; does a pretty good job, but it’s not giving us the most efficient processing given the memory resources available. This shouldn’t be too surprising since &lt;span class=&#34;math inline&#34;&gt;\(10^8\)&lt;/span&gt; bytes is quite small, so would should really be picking something more appropriate for our system’s available RAM. All this said, it’s worth noting these are fairly modest efficiency gains, but they can add up if you’re dealing with a large number of big raster files.&lt;/p&gt;
+&lt;p&gt;I also estimated the maximum memory usage during the summarization, so let’s take a look at that.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;ggplot(time_mem) +
+  aes(x = n_rows, y = max_mem / 2^30) +
+  geom_line() +
+  geom_point() +
+  labs(x = &amp;quot;# of rows&amp;quot;, y = &amp;quot;Maximum memory used (GB)&amp;quot;,
+       title = &amp;quot;Memory usage increases linearly with block size&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2020-03-22-block-processing-rasters/index_files/figure-html/vs-mem-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;This is as expected: large blocks mean more data is being processed at once, which leads to higher memory usage.&lt;/p&gt;
+&lt;p&gt;The takeaway from all this is so obvious it’s almost embarrassing: if you want to process large rasters efficiently, increase the &lt;code&gt;chunksize&lt;/code&gt; option so the &lt;code&gt;raster&lt;/code&gt; package will process files in larger blocks and take advantage of the RAM you have available. Despite it being obvious, I suspect most people are like me and blindly go with the default raster options, which is fine in many cases, but becomes problematic for large rasters.&lt;/p&gt;
+&lt;/div&gt;
+</description>
+    </item>
     
     <item>
       <title>Processing Large Rasters in R</title>
@@ -20,7 +151,7 @@
       <description>
 
 
-&lt;p&gt;We work with a lot of huge raster datasets on the &lt;a href=&#34;https://ebird.org/science/&#34;&gt;eBird Status &amp;amp; Trends&lt;/a&gt; project, and processing them is becoming a real bottleneck in our R workflow. For example, we make weekly estimates of bird abundance at 3 km resolution across the entire Western Hemisphere, which results in raster stacks with billions of cells! To produce seasonal abundance maps, we need to average the weekly layers across all weeks within each season using the &lt;code&gt;raster&lt;/code&gt; function &lt;code&gt;calc()&lt;/code&gt;, and it takes forever with these huge files! In this post, I’m going to try to understand how &lt;code&gt;raster&lt;/code&gt; processes data and explore how this can be tweaked to improve computational efficiency.&lt;/p&gt;
+&lt;p&gt;We work with a lot of large raster datasets on the &lt;a href=&#34;https://ebird.org/science/&#34;&gt;eBird Status &amp;amp; Trends&lt;/a&gt; project, and processing them is becoming a real bottleneck in our R workflow. For example, we make weekly estimates of bird abundance at 3 km resolution across the entire Western Hemisphere, which results in raster stacks with billions of cells! To produce seasonal abundance maps, we need to average the weekly layers across all weeks within each season using the &lt;code&gt;raster&lt;/code&gt; function &lt;code&gt;calc()&lt;/code&gt;, and it takes forever with these huge files! In this post, I’m going to try to understand how &lt;code&gt;raster&lt;/code&gt; processes data and explore how this can be tweaked to improve computational efficiency. Most of the material is covered in greater detail in &lt;a href=&#34;https://rspatial.org/raster/RasterPackage.pdf&#34;&gt;the &lt;code&gt;raster&lt;/code&gt; package vignette&lt;/a&gt;, especially Chapter 10 of that document.&lt;/p&gt;
 &lt;p&gt;In general, R holds objects in memory, which results in a limit to the size of objects that can be processed. This poses a problem for processing raster datasets, which can be much larger than the available system memory. The &lt;code&gt;raster&lt;/code&gt; package addresses this by only storing references to raster files within its &lt;code&gt;Raster*&lt;/code&gt; objects. Depending on the memory requirements for a given raster calculation, and the memory available, the package functions will either read the whole dataset into R for processing or process it in smaller chunks.&lt;/p&gt;
 &lt;p&gt;Let’s start by importing an example dataset generated using the &lt;code&gt;simulate_species()&lt;/code&gt; function from the &lt;code&gt;prioritizr&lt;/code&gt; package. The raster has dimensions 1000x1000 and 9 layers.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(raster)
@@ -69,8 +200,8 @@ apply(a, 1:2, mean)
 &lt;p&gt;But what &lt;code&gt;raster&lt;/code&gt; is doing in &lt;code&gt;calc()&lt;/code&gt; is a little different and depends on the memory requirements of the calculation. We can use the function &lt;code&gt;canProccessInMemory()&lt;/code&gt; to test whether a &lt;code&gt;Raster*&lt;/code&gt; object can be loaded into memory for processing or not. We’ll use &lt;code&gt;verbose = TRUE&lt;/code&gt; to get some additional information.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;canProcessInMemory(r, verbose = TRUE)
 #&amp;gt; memory stats in GB
-#&amp;gt; mem available: 6.26
-#&amp;gt;         60%  : 3.75
+#&amp;gt; mem available: 5.11
+#&amp;gt;         60%  : 3.06
 #&amp;gt; mem needed   : 0.27
 #&amp;gt; max allowed  : 4.66  (if available)
 #&amp;gt; [1] TRUE&lt;/code&gt;&lt;/pre&gt;
@@ -91,7 +222,7 @@ apply(a, 1:2, mean)
 #&amp;gt; 3    20 TRUE          
 #&amp;gt; 4    30 TRUE          
 #&amp;gt; 5    40 TRUE          
-#&amp;gt; 6    50 TRUE          
+#&amp;gt; 6    50 FALSE         
 #&amp;gt; 7    60 FALSE&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;So, even though I called this a “large” raster, R can still handle processing it in memory until we get to requiring a fairly large number of copies, at which time, the raster will switch to being processed in blocks. For reason I don’t fully understand, the &lt;a href=&#34;https://github.com/rspatial/raster/blob/master/R/calc.R&#34;&gt;source code of the &lt;code&gt;calc()&lt;/code&gt; function&lt;/a&gt; suggests that it’s using &lt;code&gt;n = 2 * (nlayers(r) + 1)&lt;/code&gt;, which is 20, so &lt;code&gt;calc()&lt;/code&gt; is processing this raster in memory on my system. Indeed, we can confirm that the result of this calculation are stored in a memory with &lt;code&gt;inMemory()&lt;/code&gt;.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;inMemory(r_mean)
@@ -102,16 +233,16 @@ rasterOptions(todisk = FALSE)
 t_inmem &amp;lt;- system.time(calc(r, mean, na.rm = TRUE))
 print(t_inmem)
 #&amp;gt;    user  system elapsed 
-#&amp;gt;   5.453   0.156   5.612
+#&amp;gt;   5.533   0.149   5.699
 
 # on disk
 rasterOptions(todisk = TRUE)
 t_ondisk &amp;lt;- system.time(calc(r, mean, na.rm = TRUE))
 print(t_ondisk)
 #&amp;gt;    user  system elapsed 
-#&amp;gt;   5.479   0.337   5.821
+#&amp;gt;   5.683   0.392   6.091
 rasterOptions(todisk = FALSE)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;So, we see a 3.7% increase in efficiency by processing in memory. The &lt;code&gt;profmem&lt;/code&gt; package can gives us some information on the different amounts of memory used for the two approaches. Specifically, we can estimate the maximum amount of memory used at any one time by &lt;code&gt;calc()&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;So, we see a 6.9% increase in efficiency by processing in memory. The &lt;code&gt;profmem&lt;/code&gt; package can gives us some information on the different amounts of memory used for the two approaches. Specifically, we can estimate the maximum amount of memory used at any one time by &lt;code&gt;calc()&lt;/code&gt;.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# in memory
 rasterOptions(todisk = FALSE)
 m_inmem &amp;lt;- max(profmem(calc(r, mean, na.rm = TRUE))$bytes, na.rm = TRUE)
@@ -136,7 +267,7 @@ rasterOptions(todisk = FALSE)
 #&amp;gt; chunksize     : 1e+08 
 #&amp;gt; maxmemory     : 5e+09 
 #&amp;gt; memfrac       : 0.6 
-#&amp;gt; tmpdir        : /var/folders/mg/qh40qmqd7376xn8qxd6hm5lwjyy0h2/T//RtmpEYHdRs/raster// 
+#&amp;gt; tmpdir        : /var/folders/mg/qh40qmqd7376xn8qxd6hm5lwjyy0h2/T//Rtmp3inPgu/raster// 
 #&amp;gt; tmptime       : 168 
 #&amp;gt; setfileext    : TRUE 
 #&amp;gt; tolerance     : 0.1 
@@ -163,7 +294,7 @@ t_smallchunks &amp;lt;- system.time(calc(r, mean, na.rm = TRUE))
 # undo the hack
 assignInNamespace(&amp;quot;.chunk&amp;quot;, cs_orig, ns = &amp;quot;raster&amp;quot;)
 rasterOptions(default = TRUE)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;Processing in smaller chunks resulted in a 46.0% decrease in efficiency compared to the default chunk size. All this suggests to me that, when dealing with large rasters, it makes sense to increase &lt;code&gt;maxmemory&lt;/code&gt; as much as feasible given the memory available on your system; the default value of ~ 1 GB is quite small for a modern computer. Then, once you get to a point where the raster has to be processed in blocks, increase &lt;code&gt;chunksize&lt;/code&gt; to take advantage of as much memory as you have available.&lt;/p&gt;
+&lt;p&gt;Processing in smaller chunks resulted in a 56.4% decrease in efficiency compared to the default chunk size. All this suggests to me that, when dealing with large rasters, it makes sense to increase &lt;code&gt;maxmemory&lt;/code&gt; as much as feasible given the memory available on your system; the default value of ~ 1 GB is quite small for a modern computer. Then, once you get to a point where the raster has to be processed in blocks, increase &lt;code&gt;chunksize&lt;/code&gt; to take advantage of as much memory as you have available.&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;processing-in-blocks&#34; class=&#34;section level2&#34;&gt;
 &lt;h2&gt;Processing in blocks&lt;/h2&gt;
@@ -237,11 +368,11 @@ endCluster()
 # time for parallel calc
 t_parallel[3]
 #&amp;gt; elapsed 
-#&amp;gt;    10.2
+#&amp;gt;    10.7
 # time for sequential calc
 t_ondisk[3]
 #&amp;gt; elapsed 
-#&amp;gt;    5.82&lt;/code&gt;&lt;/pre&gt;
+#&amp;gt;    6.09&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;Hmmm, there’s something odd going on here, it’s taking longer for the parallel version than the sequential version. I suspect I’ve messed something up in the parallel implementation. Let me know if you know what I’ve done wrong, perhaps it’s a topic for another post.&lt;/p&gt;
 &lt;/div&gt;
 </description>
