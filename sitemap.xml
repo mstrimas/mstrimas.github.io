@@ -3,33 +3,43 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
-    <loc>/post/block-processing-rasters/</loc>
-    <lastmod>2020-03-22T10:10:24-04:00</lastmod>
-  </url>
-  
-  <url>
     <loc>/</loc>
-    <lastmod>2020-03-22T10:10:24-04:00</lastmod>
+    <lastmod>2020-03-26T10:10:24-04:00</lastmod>
   </url>
   
   <url>
     <loc>/post/</loc>
-    <lastmod>2020-03-22T10:10:24-04:00</lastmod>
+    <lastmod>2020-03-26T10:10:24-04:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/python/</loc>
+    <lastmod>2020-03-26T06:39:19-04:00</lastmod>
   </url>
   
   <url>
     <loc>/tags/r/</loc>
-    <lastmod>2020-03-22T10:10:24-04:00</lastmod>
+    <lastmod>2020-03-26T10:10:24-04:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/post/raster-summarization-in-python/</loc>
+    <lastmod>2020-03-26T06:39:19-04:00</lastmod>
   </url>
   
   <url>
     <loc>/tags/spatial/</loc>
-    <lastmod>2020-03-22T10:10:24-04:00</lastmod>
+    <lastmod>2020-03-26T10:10:24-04:00</lastmod>
   </url>
   
   <url>
     <loc>/tags/</loc>
-    <lastmod>2020-03-22T10:10:24-04:00</lastmod>
+    <lastmod>2020-03-26T10:10:24-04:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/post/block-processing-rasters/</loc>
+    <lastmod>2020-03-26T10:10:24-04:00</lastmod>
   </url>
   
   <url>
@@ -73,21 +83,6 @@
   </url>
   
   <url>
-    <loc>/publication/preprint/</loc>
-    <lastmod>2019-04-07T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/publication/</loc>
-    <lastmod>2019-04-07T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/tags/source-themes/</loc>
-    <lastmod>2019-04-07T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
     <loc>/tags/ecology/</loc>
     <lastmod>2020-03-20T07:11:11-04:00</lastmod>
   </url>
@@ -100,16 +95,6 @@
   <url>
     <loc>/post/hexagonal-grids/</loc>
     <lastmod>2020-03-20T08:13:30-04:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/publication/journal-article/</loc>
-    <lastmod>2015-09-01T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/publication/conference-paper/</loc>
-    <lastmod>2013-07-01T00:00:00+00:00</lastmod>
   </url>
   
   <url>

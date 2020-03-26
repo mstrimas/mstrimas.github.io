@@ -5,12 +5,121 @@
     <link>/tags/spatial/</link>
       <atom:link href="/tags/spatial/index.xml" rel="self" type="application/rss+xml" />
     <description>Spatial</description>
-    <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Tue, 24 Mar 2020 00:00:00 +0000</lastBuildDate>
+    <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>© Matt Strimas-Mackey 2020</copyright><lastBuildDate>Thu, 26 Mar 2020 00:00:00 +0000</lastBuildDate>
     <image>
       <url>img/map[gravatar:%!s(bool=false) shape:circle]</url>
       <title>Spatial</title>
       <link>/tags/spatial/</link>
     </image>
+    
+    <item>
+      <title>Raster Summarization in Python</title>
+      <link>/post/raster-summarization-in-python/</link>
+      <pubDate>Thu, 26 Mar 2020 00:00:00 +0000</pubDate>
+      <guid>/post/raster-summarization-in-python/</guid>
+      <description>
+
+
+&lt;p&gt;As part of the &lt;a href=&#34;https://ebird.org/science/&#34;&gt;eBird Status &amp;amp; Trends&lt;/a&gt; team, I often find myself having to quickly summarize large rasters across layers. For examples, we might summarize weekly relative abundance layers for a single species across the weeks to estimate year round abundance or, for a given week, we might summarize across species to produce a &lt;a href=&#34;https://en.wikipedia.org/wiki/Species_richness&#34;&gt;species richness&lt;/a&gt; layer. I previously talked about how to perform these summarizations efficiently in R &lt;a href=&#34;/post/processing-large-rasters-in-r/&#34;&gt;here&lt;/a&gt; and &lt;a href=&#34;/post/2020-03-24-block-processing-rasters/&#34;&gt;here&lt;/a&gt;. However, despite my best efforts, I could get the &lt;code&gt;raster&lt;/code&gt; R package to perform as quickly as I wanted it to. After a little googling, I started to think maybe the answer to “how do I quickly summarize rasters across layers in R?” might be “screw it, use Python!”.&lt;/p&gt;
+&lt;p&gt;The &lt;a href=&#34;https://gdal.org/programs/gdal_calc.html&#34;&gt;&lt;code&gt;gdal_calc.py&lt;/code&gt;&lt;/a&gt; tool is a general purpose raster calculator using GDAL. You can do all sorts of stuff with it: adding layers, multiplying layers, reclassification, and calculating the mean or sum, among many other things. I did a few tests, and it seemed to be faster than &lt;code&gt;raster&lt;/code&gt; in R. There are three issues that made it a pain to work with though. First, you’re limited to working with a maximum of 26 layers or bands, and we often need to summarize across 52 weeks or hundreds of species. Second, in an effort to allow any possible type of raster algebra, the syntax is a bit verbose. For example, to find the cell-wise mean across two raster files, you’d use:&lt;/p&gt;
+&lt;pre class=&#34;python&#34;&gt;&lt;code&gt;gdal_calc.py -A input.tif -B input2.tif --outfile=result.tif --calc=&amp;quot;(A+B)/2&amp;quot;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;which becomes cumbersome when you have many rasters. Finally, I found it hard to get &lt;code&gt;gdal_calc.py&lt;/code&gt; to play nicely with missing values. I wanted to &lt;code&gt;gdal_calc.py&lt;/code&gt; to ignore missing values similarly to &lt;code&gt;mean(x, na.rm = TRUE)&lt;/code&gt; in R, but it wasn’t doing that.&lt;/p&gt;
+&lt;p&gt;To overcome these issues, I decided to teach myself Python and create my own tool, aided by the source code of &lt;code&gt;gdal_calc.py&lt;/code&gt;, that’s specifically designed for summarizing raster data across layers or bands. This tool is &lt;code&gt;gdal-summarize.py&lt;/code&gt; and is &lt;a href=&#34;https://github.com/mstrimas/gdal-summarize&#34;&gt;available on GitHub&lt;/a&gt;. I hope others will use it and provide feedback; this is my first foray into Python!&lt;/p&gt;
+&lt;div id=&#34;gdal_summarize.py&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;&lt;code&gt;gdal_summarize.py&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;The goal of &lt;code&gt;gdal-summarize.py&lt;/code&gt; is to summarize raster data across layers or bands. There are two common use cases for this tool. The first is calculating a cell-wise summary across the bands of a raster file (e.g. a GeoTIFF). For example, given a multi-band input GeoTIFF file &lt;code&gt;input.tif&lt;/code&gt;, to calculate the cell-wise sum of the first three bands use:&lt;/p&gt;
+&lt;pre class=&#34;bash&#34;&gt;&lt;code&gt;gdal-summarize.py input.tif --bands 1 2 3 --outfile output.tif&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Alternatively, to compute the cell-wise sum across multiple GeoTIFF files (&lt;code&gt;input1.tif&lt;/code&gt;, &lt;code&gt;input2.tif&lt;/code&gt;, and &lt;code&gt;input3.tif&lt;/code&gt;) use:&lt;/p&gt;
+&lt;pre class=&#34;bash&#34;&gt;&lt;code&gt;gdal-summarize.py input1.tif input2.tif input3.tif --outfile output.tif&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;If these input files have multiple bands, the default behavior is to summarize them across the &lt;strong&gt;first&lt;/strong&gt; band of each file; however, the &lt;code&gt;--bands&lt;/code&gt; argument can override this behavior:&lt;/p&gt;
+&lt;pre class=&#34;bash&#34;&gt;&lt;code&gt;# summarize across the second band of each file
+gdal-summarize.py input1.tif input2.tif input3.tif --bands 2 --outfile output.tif
+# summarize across band 1 of input1.tif and band 2 of input2.tif
+gdal-summarize.py input1.tif input2.tif --bands 1 2 --outfile output.tif&lt;/code&gt;&lt;/pre&gt;
+&lt;div id=&#34;summary-functions&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Summary functions&lt;/h3&gt;
+&lt;p&gt;The default behavior is to perform a cell-wise sum; however, other summary functions are available via the &lt;code&gt;--function&lt;/code&gt; argument:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;sum&lt;/code&gt;: cell-wise sum across layers.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;mean&lt;/code&gt;: cell-wise mean across layers.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;count&lt;/code&gt;: count the number layers with non-negative value for each cell.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;richness&lt;/code&gt;: count the number of layers with positive values for each cell.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;In all cases, these functions remove missing values (i.e. NoData or NA) prior to calculating the summary statistic. For example, the mean of the numners, 1, 2, and NoData is 1.5. This is similar to the way &lt;code&gt;na.rm = TRUE&lt;/code&gt; works in R. I’d be happy to add additional summary functions, just &lt;a href=&#34;https://github.com/mstrimas/gdal-summarize/issues/new/choose&#34;&gt;open an issue&lt;/a&gt; or &lt;a href=&#34;https://github.com/mstrimas/gdal-summarize/compare&#34;&gt;submit a pull request&lt;/a&gt; on GitHub.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;block-processing&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Block processing&lt;/h3&gt;
+&lt;p&gt;To avoid having to read an entire raster file into memory, &lt;code&gt;gdal-summarize.py&lt;/code&gt; processes input rasters in blocks; it will read in a block of data, summarize it, then output to file, before proceeding to the next block. GDAL will suggest a “natural” block size for efficiently processing the data (typically 256X256 cells for GeoTIFFs), but users can also specify their own block size with command line arguments in one of two ways:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;--block_size/-s&lt;/code&gt;: two integers given the x and y dimensions of the block. Note that the x dimension corresponds to columns, while the y dimension corresponds to rows.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;--nrows/-n&lt;/code&gt;: an integer specifying the number of rows in each block. If this approach is used, the raster will be processed in groups of entire rows.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;It’s not clear to me what the most efficient block size is, so using the default block size is probably a good starting point. This &lt;a href=&#34;https://gis.stackexchange.com/questions/172666/optimizing-python-gdal-readasarray&#34;&gt;StackExchange question&lt;/a&gt; has some thoughts on block size and efficiency and suggests it could be worth doing some tests to see what works best for your scenario.&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;comparing-python-and-r&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Comparing Python and R&lt;/h2&gt;
+&lt;p&gt;Everyone loves a good Python vs. R battle, so let’s put &lt;code&gt;calc()&lt;/code&gt; from the &lt;code&gt;raster&lt;/code&gt; R package up against &lt;code&gt;gdal-summarize.py&lt;/code&gt;. I use the same &lt;a href=&#34;https://ebird.org/science/status-and-trends/woothr&#34;&gt;Wood Thrush&lt;/a&gt; relative abundance raster from eBird Status and Trends as I used in my &lt;a href=&#34;/post/2020-03-24-block-processing-rasters/&#34;&gt;previous post&lt;/a&gt;, consisting of 16 bands with dimensions 5630X7074. Since &lt;code&gt;raster&lt;/code&gt; processes data in blocks of rows, I’ll do the same thing for &lt;code&gt;gdal-summarize.py&lt;/code&gt;.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(raster)
+library(tidyverse)
+
+f &amp;lt;- &amp;quot;data/woothr.tif&amp;quot;
+r &amp;lt;- stack(f)
+
+# choose the values of n_rows to try
+n_rows &amp;lt;- 2^seq(0, ceiling(log2(nrow(r))))
+n_rows[length(n_rows)] &amp;lt;- nrow(r)
+
+# set up 10 repetitions of each n_rows value
+nrow_grid &amp;lt;- expand_grid(rep = 1:10, n_rows = n_rows)
+
+# summarize raster using each value of n_rows
+summarize_nrows &amp;lt;- function(x) {
+  # time r
+  t_r &amp;lt;- system.time({
+    r_mean &amp;lt;- summarize_raster(r, &amp;quot;mean&amp;quot;, n_rows = x)
+  })
+  # time python
+  f_out &amp;lt;- &amp;quot;woothr-mean.tif&amp;quot;
+  t_py &amp;lt;- system.time({
+    str_glue(&amp;quot;source ~/.bash_profile;&amp;quot;,
+             &amp;quot;gdal-summarize.py {f} -o {f_out} -w -f &amp;#39;mean&amp;#39; -n {x}&amp;quot;) %&amp;gt;% 
+      system()
+  })
+  tibble(elapsed_r = t_r[&amp;quot;elapsed&amp;quot;], elapsed_py = t_py[&amp;quot;elapsed&amp;quot;])
+}
+time_summarize &amp;lt;- nrow_grid %&amp;gt;% 
+  mutate(results = map(n_rows, summarize_nrows)) %&amp;gt;% 
+  unnest(cols = results)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Let’s take look at how they compare:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;# x-axis breaks
+brks &amp;lt;- 2^seq(0, ceiling(log2(nrow(r))), by = 2)
+brks[length(brks)] &amp;lt;- nrow(r)
+
+# transform to longer for ggplot
+time_summarize &amp;lt;- time_summarize %&amp;gt;% 
+  pivot_longer(cols = c(elapsed_r, elapsed_py)) %&amp;gt;% 
+  mutate(name = recode(name, &amp;quot;elapsed_r&amp;quot; = &amp;quot;R&amp;quot;, &amp;quot;elapsed_py&amp;quot; = &amp;quot;Python&amp;quot;))
+
+# plot
+ggplot(time_summarize) +
+  aes(x = n_rows, y = value / 60, group = name, color = name) +
+  geom_point(alpha = 0.25, size = 0.75) +
+  geom_smooth(method = &amp;quot;gam&amp;quot;) +
+  scale_x_continuous(trans = &amp;quot;log2&amp;quot;, breaks = brks) +
+  scale_color_brewer(palette = &amp;quot;Set1&amp;quot;) +
+  labs(x = &amp;quot;# of rows/block size (log2 scale)&amp;quot;, 
+       y = &amp;quot;Elapsed time (minutes)&amp;quot;,
+       color = NULL,
+       title = &amp;quot;Python vs. R raster summarization&amp;quot;,
+       subtitle = &amp;quot;5630x7074 raster, mean of 16 layers&amp;quot;) +
+  theme(legend.position = &amp;quot;bottom&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2020-03-26-raster-summarization-in-python/index_files/figure-html/time-plot-1.png&#34; width=&#34;\textwidth&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;So, not only is Python raster than R, but Python experiences much less of a block size effect.&lt;/p&gt;
+&lt;p&gt;Hopefully others will find this tool useful! Please take a look through the &lt;a href=&#34;https://github.com/mstrimas/gdal-summarize&#34;&gt;GitHub repo&lt;/a&gt; and let me know if there’s something I could be doing differently. As I said at the start, this is my first foray into Python, so I’m bound to have made some mistakes.&lt;/p&gt;
+&lt;/div&gt;
+</description>
+    </item>
     
     <item>
       <title>Efficient Block Processing of Rasters in R</title>
@@ -20,7 +129,7 @@
       <description>
 
 
-&lt;p&gt;In &lt;a href=&#34;post/processing-large-rasters-in-r/&#34;&gt;my previous post&lt;/a&gt;, I tried to understand how &lt;code&gt;raster&lt;/code&gt; package functions like &lt;code&gt;calc()&lt;/code&gt; process raster data. The package does a good job of abstracting a lot of this detail away from users, data will be processed either on disk or in memory based on criteria related to the size of the raster, the available resources, and user-defined parameters. In addition, if processing is done on disk, the raster will be processed in blocks, the size of which is user controlled. In most cases, &lt;code&gt;raster&lt;/code&gt; makes sensible choices and the whole process works seamlessly for the user. However, I’ve found that, for large raster datasets, the specific details of &lt;em&gt;how&lt;/em&gt; a raster is processed in blocks can make a big difference in terms of computational efficient. Furthermore, with &lt;code&gt;raster&lt;/code&gt; it’s hard to know exactly what’s going on behind the scenes and the parameters that we can tune through &lt;code&gt;rasterOptions()&lt;/code&gt; don’t give me as much direct control over the processing as I’d like. In this post, I’m going to try taking lower level control of &lt;code&gt;raster&lt;/code&gt; processing and explore how choices about block size impact processing speed.&lt;/p&gt;
+&lt;p&gt;In &lt;a href=&#34;/post/processing-large-rasters-in-r/&#34;&gt;my previous post&lt;/a&gt;, I tried to understand how &lt;code&gt;raster&lt;/code&gt; package functions like &lt;code&gt;calc()&lt;/code&gt; process raster data. The package does a good job of abstracting a lot of this detail away from users, data will be processed either on disk or in memory based on criteria related to the size of the raster, the available resources, and user-defined parameters. In addition, if processing is done on disk, the raster will be processed in blocks, the size of which is user controlled. In most cases, &lt;code&gt;raster&lt;/code&gt; makes sensible choices and the whole process works seamlessly for the user. However, I’ve found that, for large raster datasets, the specific details of &lt;em&gt;how&lt;/em&gt; a raster is processed in blocks can make a big difference in terms of computational efficient. Furthermore, with &lt;code&gt;raster&lt;/code&gt; it’s hard to know exactly what’s going on behind the scenes and the parameters that we can tune through &lt;code&gt;rasterOptions()&lt;/code&gt; don’t give me as much direct control over the processing as I’d like. In this post, I’m going to try taking lower level control of &lt;code&gt;raster&lt;/code&gt; processing and explore how choices about block size impact processing speed.&lt;/p&gt;
 &lt;p&gt;To demonstrate all this, I’m going to use some real data from the &lt;a href=&#34;https://ebird.org/science/status-and-trends/woothr/abundance-map&#34;&gt;eBird Status &amp;amp; Trends&lt;/a&gt;; this is a dataset that I work with on a daily basis in my job. The below code downloads weekly relative abundance for Wood Thrush at 3 km resolution across the entire western hemisphere, subsets the annual data to just the weeks of the breeding season (May 24 - September 7), then saves the results as a GeoTIFF.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(ebirdst)
 library(raster)
@@ -70,13 +179,13 @@ r &amp;lt;- writeRaster(r, &amp;quot;data/woothr.tif&amp;quot;)&lt;/code&gt;&lt;
 r_mean_calc &amp;lt;- calc(r, mean, na.rm = TRUE)
 #&amp;gt; Using 111 blocks of 51 rows.
 toc()
-#&amp;gt; 127.396 sec elapsed&lt;/code&gt;&lt;/pre&gt;
+#&amp;gt; 123.082 sec elapsed&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;In this case, with the default chunk size of &lt;span class=&#34;math inline&#34;&gt;\(10^8 \approx 0.1 GB\)&lt;/span&gt;, &lt;code&gt;calc()&lt;/code&gt; processes this raster in 111 blocks of 51 rows each. We can use my custom &lt;code&gt;summarize_raster()&lt;/code&gt; function to do the same thing, but specify block size explicitly.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;tic()
 r_mean_summ &amp;lt;- summarize_raster(r, &amp;quot;mean&amp;quot;, n_rows = 51)
 #&amp;gt; Using 111 blocks of 51 rows.
 toc()
-#&amp;gt; 118.721 sec elapsed&lt;/code&gt;&lt;/pre&gt;
+#&amp;gt; 121.301 sec elapsed&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;Turns out &lt;code&gt;summarize_raster()&lt;/code&gt; is slightly faster because I’ve slimmed it down and removed some additional checks and functionality. We can confirm that the two approaches produce the same results.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;cellStats(abs(r_mean_calc - r_mean_summ), max)
 #&amp;gt; [1] 0&lt;/code&gt;&lt;/pre&gt;
